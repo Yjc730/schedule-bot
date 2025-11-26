@@ -150,6 +150,10 @@ async def parse_schedule_text(req: ParseTextRequest):
 # ✅ 圖片 → Vision 行程解析
 # =========================
 
+```python
+import json
+import re
+
 @app.post("/parse-schedule-image", response_model=ParseScheduleResponse)
 async def parse_schedule_image(
     image: UploadFile = File(...),
@@ -175,6 +179,58 @@ async def parse_schedule_image(
   "raw_text": null,
   "source": "image"
 }}
+
+⚠️ 只回傳 JSON 本體（不要加 ```json 或說明文字）
+"""
+
+    payload = {
+        "model": "qwen/qwen-2.5-vl-7b",
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{b64_img}"
+                        }
+                    }
+                ]
+            }
+        ],
+        "temperature": 0.2,
+    }
+
+    try:
+        r = requests.post(OPENROUTER_URL, headers=headers, json=payload, timeout=90)
+        data = r.json()
+
+        raw_text = data["choices"][0]["message"]["content"]
+
+        # ✅ 強制只取中間 JSON（防止 ```json 或說明）
+        match = re.search(r"\[.*\]", raw_text, re.S)
+        if not match:
+            raise ValueError("Vision 回傳內容不是 JSON")
+
+        clean_json = match.group(0)
+        events = json.loads(clean_json)
+
+        return ParseScheduleResponse(events=events)
+
+    except Exception as e:
+        return ParseScheduleResponse(events=[
+            Event(
+                title="圖片解析失敗",
+                date="",
+                start_time="",
+                end_time="",
+                location="",
+                notes=str(e),
+                raw_text=None,
+                source="image"
+            )
+        ])
 
 只回傳 JSON，不要其他說明。
 """
@@ -204,3 +260,4 @@ async def parse_schedule_image(
 
     events = eval(raw_json)
     return ParseScheduleResponse(events=events)
+
