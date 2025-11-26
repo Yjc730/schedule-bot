@@ -8,18 +8,26 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
 
+from google import genai
+from google.genai import types
+
 # =========================
-# OpenRouter 設定
+# 環境變數設定
 # =========================
+
+# OpenRouter（聊天 + 文字解析）
 API_KEY = os.getenv("API_KEY")
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 TEXT_MODEL = "qwen/qwen-2.5-7b-instruct"
-VISION_MODEL = "qwen/qwen-2.5-vl-7b"
+
+# Gemini（圖片解析）
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 # =========================
 # FastAPI
 # =========================
 app = FastAPI()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -67,7 +75,7 @@ async def root():
     return {"status": "ok", "message": "Schedule Bot API"}
 
 # =========================
-# ✅ 真・LLM 聊天
+# ✅ 真・LLM 聊天（OpenRouter）
 # =========================
 @app.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
@@ -77,9 +85,11 @@ async def chat(req: ChatRequest):
     }
 
     messages = [{"role": "system", "content": "你是一個友善的繁體中文 AI 助手。"}]
+
     if req.context:
         for msg in req.context:
             messages.append({"role": msg.role, "content": msg.content})
+
     messages.append({"role": "user", "content": req.message})
 
     payload = {
@@ -90,11 +100,12 @@ async def chat(req: ChatRequest):
 
     r = requests.post(OPENROUTER_URL, headers=headers, json=payload, timeout=60)
     data = r.json()
+
     reply_text = data["choices"][0]["message"]["content"]
     return ChatResponse(reply=reply_text)
 
 # =========================
-# ✅ 文字 → JSON 行程解析
+# ✅ 文字 → JSON 行程解析（OpenRouter）
 # =========================
 @app.post("/parse-schedule-text", response_model=ParseScheduleResponse)
 async def parse_schedule_text(req: ParseTextRequest):
@@ -106,7 +117,7 @@ async def parse_schedule_text(req: ParseTextRequest):
     prompt = f"""
 請把下面的行程描述轉成 JSON 陣列：
 
-[{{
+[{{ 
   "title": "",
   "date": "YYYY-MM-DD",
   "start_time": "HH:MM",
@@ -134,6 +145,7 @@ async def parse_schedule_text(req: ParseTextRequest):
 
     r = requests.post(OPENROUTER_URL, headers=headers, json=payload, timeout=60)
     data = r.json()
+
     raw_text = data["choices"][0]["message"]["content"]
 
     match = re.search(r"\[.*\]", raw_text, re.S)
@@ -142,36 +154,35 @@ async def parse_schedule_text(req: ParseTextRequest):
     return ParseScheduleResponse(events=events)
 
 # =========================
-# ✅ ✅ ✅ 圖片 → Vision 真解析（最終穩定版）
+# ✅ ✅ ✅ 圖片 → Gemini Vision 行程解析（最穩定版）
 # =========================
 @app.post("/parse-schedule-image", response_model=ParseScheduleResponse)
 async def parse_schedule_image(
     image: UploadFile = File(...),
     reference_date: Optional[str] = Form(None),
 ):
-    if not API_KEY:
+    if not GEMINI_API_KEY:
         return ParseScheduleResponse(events=[
             Event(
-                title="系統錯誤：缺少 API_KEY",
+                title="系統錯誤：缺少 GEMINI_API_KEY",
                 date="",
                 start_time="",
                 end_time="",
                 location="",
-                notes="請在 Railway 設定環境變數 API_KEY",
+                notes="請在 Railway 設定 GEMINI_API_KEY",
                 raw_text=None,
                 source="image"
             )
         ])
 
-    headers = {
-        "Authorization": f"Bearer {API_KEY}",
-        "Content-Type": "application/json"
-    }
+    try:
+        # 讀取圖片
+        img_bytes = await image.read()
 
-    img_bytes = await image.read()
-    b64_img = base64.b64encode(img_bytes).decode("utf-8")
+        # 初始化 Gemini Client
+        client = genai.Client(api_key=GEMINI_API_KEY)
 
-    prompt = """
+        prompt = """
 你是一個專業行事曆圖片解析 AI。
 請從圖片中辨識所有行程，並輸出為 JSON 陣列：
 
@@ -189,39 +200,22 @@ async def parse_schedule_image(
 ⚠️ 僅回傳 JSON 陣列，不要加說明文字。
 """
 
-    payload = {
-        "model": VISION_MODEL,
-        "messages": [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": prompt},
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/jpeg;base64,{b64_img}"
-                        }
-                    }
-                ]
-            }
-        ],
-        "temperature": 0.2,
-    }
-
-    try:
-        r = requests.post(
-            OPENROUTER_URL,
-            headers=headers,
-            json=payload,
-            timeout=120
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=[
+                types.Part.from_bytes(
+                    data=img_bytes,
+                    mime_type=image.content_type or "image/jpeg",
+                ),
+                prompt,
+            ],
         )
 
-        data = r.json()
-        raw_text = data["choices"][0]["message"]["content"]
+        raw_text = response.text
 
         match = re.search(r"\[.*\]", raw_text, re.S)
         if not match:
-            raise ValueError(f"Vision 回傳非 JSON：{raw_text}")
+            raise ValueError(f"Gemini 回傳非 JSON：{raw_text}")
 
         clean_json = match.group(0)
         events = json.loads(clean_json)
@@ -231,7 +225,7 @@ async def parse_schedule_image(
     except Exception as e:
         return ParseScheduleResponse(events=[
             Event(
-                title="圖片解析失敗",
+                title="圖片解析失敗（Gemini）",
                 date="",
                 start_time="",
                 end_time="",
