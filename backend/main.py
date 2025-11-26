@@ -106,3 +106,4 @@ async def parse_schedule_image(
         source="image",
     )
     return ParseScheduleResponse(events=[dummy_event])
+
