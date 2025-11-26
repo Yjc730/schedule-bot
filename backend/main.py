@@ -5,27 +5,21 @@ from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
-from google import genai
-from google.genai import types
+import google.generativeai as genai
 
 # =========================
-# ✅ 從環境變數讀取 Gemini API Key
-# Railway 需要設定：
-# GEMINI_API_KEY = 你的金鑰
+# Gemini API Key（從 Railway 環境變數讀）
 # =========================
 GEMINI_API_KEY = os.getenv("AIzaSyApby4uGU1rqVKMLG76dkX8nnZ0zFUnd2M")
+genai.configure(api_key=GEMINI_API_KEY)
 
-if not GEMINI_API_KEY:
-    raise RuntimeError("❌ 缺少 GEMINI_API_KEY，請到 Railway 設定環境變數")
-
-# ✅ 初始化一次 Client（避免重複衝突）
-client = genai.Client(api_key=GEMINI_API_KEY)
+model_chat = genai.GenerativeModel("gemini-2.5-flash")
+model_vision = genai.GenerativeModel("gemini-2.5-flash")
 
 # =========================
 # FastAPI
 # =========================
 app = FastAPI()
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -61,21 +55,18 @@ class ParseScheduleResponse(BaseModel):
 # =========================
 @app.get("/")
 async def root():
-    return {"status": "ok", "message": "Gemini AI API Running"}
+    return {"status": "ok", "message": "Gemini API Running"}
 
 # =========================
-# ✅ ✅ 聊天（Gemini 2.5 Flash）
+# ✅ 聊天（Gemini 2.5 Flash）
 # =========================
 @app.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=req.message
-    )
-    return ChatResponse(reply=response.text)
+    resp = model_chat.generate_content(req.message)
+    return ChatResponse(reply=resp.text)
 
 # =========================
-# ✅ ✅ ✅ 圖片解析（Gemini 2.5 Flash Vision）
+# ✅ 圖片解析（Gemini Vision）
 # =========================
 @app.post("/parse-schedule-image", response_model=ParseScheduleResponse)
 async def parse_schedule_image(image: UploadFile = File(...)):
@@ -83,9 +74,7 @@ async def parse_schedule_image(image: UploadFile = File(...)):
         img_bytes = await image.read()
 
         prompt = """
-你是一個專業行事曆圖片解析 AI。
 請從圖片中辨識所有行程，並輸出為 JSON 陣列：
-
 [{
   "title": "",
   "date": "YYYY-MM-DD",
@@ -96,24 +85,20 @@ async def parse_schedule_image(image: UploadFile = File(...)):
   "raw_text": null,
   "source": "image"
 }]
-
-⚠️ 只回傳 JSON 陣列本體，不要加說明文字。
+⚠️ 只回傳 JSON，不要加說明文字。
 """
 
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=[
-                types.Part.from_bytes(
-                    data=img_bytes,
-                    mime_type=image.content_type or "image/jpeg",
-                ),
-                prompt
-            ]
-        )
+        response = model_vision.generate_content([
+            prompt,
+            {
+                "mime_type": image.content_type or "image/jpeg",
+                "data": img_bytes
+            }
+        ])
 
         raw_text = response.text
-        match = re.search(r"\[.*\]", raw_text, re.S)
 
+        match = re.search(r"\[.*\]", raw_text, re.S)
         if not match:
             raise ValueError(f"Gemini 回傳非 JSON：{raw_text}")
 
