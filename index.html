@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <title>行事曆聊天機器人 Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f5f5f5;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      text-align: center;
+      color: #666;
+      margin-bottom: 24px;
+      font-size: 14px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    }
+    .card h2 {
+      margin-top: 0;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .label {
+      font-size: 14px;
+      margin-bottom: 4px;
+      color: #333;
+    }
+    textarea, input[type="text"] {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+      resize: vertical;
+    }
+    textarea {
+      min-height: 80px;
+    }
+    button {
+      border: none;
+      padding: 8px 16px;
+      border-radius: 999px;
+      font-size: 14px;
+      cursor: pointer;
+      background: #2563eb;
+      color: #fff;
+      margin-top: 8px;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+    .output {
+      margin-top: 8px;
+      background: #f9fafb;
+      border-radius: 8px;
+      padding: 8px;
+      font-size: 13px;
+      white-space: pre-wrap;
+      max-height: 260px;
+      overflow: auto;
+    }
+    .small {
+      font-size: 12px;
+      color: #888;
+    }
+    .events-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin-top: 8px;
+    }
+    .events-table th,
+    .events-table td {
+      border: 1px solid #e5e7eb;
+      padding: 4px 6px;
+      text-align: left;
+    }
+    .events-table th {
+      background: #f3f4f6;
+    }
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #e5e7eb;
+      font-size: 11px;
+      margin-left: 4px;
+    }
+    input[type="file"] {
+      font-size: 13px;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>行事曆聊天機器人 Demo</h1>
+    <div class="subtitle">
+      簡易版：聊天、解析文字行程、圖片行程（後端請先跑在 <code>localhost:8000</code>）
+    </div>
+
+    <!-- 一般聊天 -->
+    <div class="card">
+      <h2>💬 一般聊天</h2>
+      <div class="label">訊息內容：</div>
+      <textarea id="chat-input" placeholder="跟機器人聊聊天，或問它今天要做什麼～"></textarea>
+      <button id="chat-send">送出</button>
+      <div class="output" id="chat-output"></div>
+    </div>
+
+    <!-- 文字行程解析 -->
+    <div class="card">
+      <h2>🗓 解析文字行程 <span class="pill">/parse-schedule-text</span></h2>
+      <div class="label">行程文字：</div>
+      <textarea id="schedule-text-input" placeholder="例如：這禮拜二下午一點到兩點打掃，禮拜三早上十點開會。"></textarea>
+      <div class="label small">
+        參考日期（用來解析「這禮拜二」之類的相對日期），空白則用今天：
+      </div>
+      <input type="text" id="reference-date-input" placeholder="2025-11-21（可選）" />
+      <button id="schedule-text-send">解析行程</button>
+      <div class="output" id="schedule-text-output"></div>
+      <div id="schedule-text-table"></div>
+    </div>
+
+    <!-- 圖片行程解析 -->
+    <div class="card">
+      <h2>🖼 解析行事曆圖片 <span class="pill">/parse-schedule-image</span></h2>
+      <div class="label">上傳行事曆截圖（jpg / png）：</div>
+      <input type="file" id="image-input" accept="image/*" />
+      <div class="label small">
+        參考日期（可選）：<input type="text" id="image-reference-date-input" placeholder="2025-11-21" />
+      </div>
+      <button id="image-send">解析圖片</button>
+      <div class="output" id="image-output"></div>
+      <div id="image-table"></div>
+    </div>
+
+    <div class="small">
+      後端 Base URL 寫死在前端 JS 裡，初始為 <code>http://localhost:8000</code>，
+      若之後你把 FastAPI 部署到雲端，只要改那個 URL 即可。
+    </div>
+  </div>
+
+  <script>
+    // 後端 API 基底網址：本機開發時用 localhost
+    const BASE_URL = "http://localhost:8000";
+
+    function renderEventsTable(events) {
+      if (!events || events.length === 0) return "<span class='small'>沒有解析出任何行程。</span>";
+
+      let rows = events.map(ev => `
+        <tr>
+          <td>${ev.date || ""}</td>
+          <td>${ev.start_time || ""} ~ ${ev.end_time || ""}</td>
+          <td>${ev.title || ""}</td>
+          <td>${ev.location || ""}</td>
+          <td>${ev.source || ""}</td>
+        </tr>
+      `).join("");
+
+      return `
+        <table class="events-table">
+          <thead>
+            <tr>
+              <th>日期</th>
+              <th>時間</th>
+              <th>標題</th>
+              <th>地點</th>
+              <th>來源</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+      `;
+    }
+
+    // ===== 一般聊天 =====
+    document.getElementById("chat-send").addEventListener("click", async () => {
+      const inputEl = document.getElementById("chat-input");
+      const outputEl = document.getElementById("chat-output");
+      const btn = document.getElementById("chat-send");
+      const text = inputEl.value.trim();
+      if (!text) return;
+
+      btn.disabled = true;
+      outputEl.textContent = "（思考中...）";
+
+      try {
+        const res = await fetch(`${BASE_URL}/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: text,
+            context: []
+          })
+        });
+        const data = await res.json();
+        outputEl.textContent = data.reply || JSON.stringify(data, null, 2);
+      } catch (err) {
+        console.error(err);
+        outputEl.textContent = "錯誤：無法連線到後端。";
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    // ===== 文字行程解析 =====
+    document.getElementById("schedule-text-send").addEventListener("click", async () => {
+      const textEl = document.getElementById("schedule-text-input");
+      const refEl = document.getElementById("reference-date-input");
+      const outputEl = document.getElementById("schedule-text-output");
+      const tableEl = document.getElementById("schedule-text-table");
+      const btn = document.getElementById("schedule-text-send");
+
+      const text = textEl.value.trim();
+      if (!text) return;
+
+      btn.disabled = true;
+      outputEl.textContent = "（解析中...）";
+      tableEl.innerHTML = "";
+
+      try {
+        const body = {
+          text: text,
+          reference_date: refEl.value.trim() || null
+        };
+        const res = await fetch(`${BASE_URL}/parse-schedule-text`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        outputEl.textContent = JSON.stringify(data, null, 2);
+        tableEl.innerHTML = renderEventsTable(data.events || []);
+      } catch (err) {
+        console.error(err);
+        outputEl.textContent = "錯誤：無法連線到後端。";
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    // ===== 圖片行程解析 =====
+    document.getElementById("image-send").addEventListener("click", async () => {
+      const fileInput = document.getElementById("image-input");
+      const refEl = document.getElementById("image-reference-date-input");
+      const outputEl = document.getElementById("image-output");
+      const tableEl = document.getElementById("image-table");
+      const btn = document.getElementById("image-send");
+
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      btn.disabled = true;
+      outputEl.textContent = "（圖片上傳與解析中...）";
+      tableEl.innerHTML = "";
+
+      try {
+        const formData = new FormData();
+        formData.append("image", file);
+        const ref = refEl.value.trim();
+        if (ref) formData.append("reference_date", ref);
+
+        const res = await fetch(`${BASE_URL}/parse-schedule-image`, {
+          method: "POST",
+          body: formData
+        });
+        const data = await res.json();
+        outputEl.textContent = JSON.stringify(data, null, 2);
+        tableEl.innerHTML = renderEventsTable(data.events || []);
+      } catch (err) {
+        console.error(err);
+        outputEl.textContent = "錯誤：無法連線到後端。";
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
