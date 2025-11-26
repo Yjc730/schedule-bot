@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <title>行事曆聊天機器人</title>
+  <title>AI 圖片聊天機器人</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     * { box-sizing: border-box; }
@@ -34,366 +34,128 @@
       justify-content: space-between;
       align-items: center;
     }
-    .header-left {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-    .title {
-      font-size: 18px;
-      font-weight: 600;
-    }
-    .subtitle {
-      font-size: 12px;
-      color: #6b7280;
-    }
-    .header-right {
-      font-size: 12px;
-      color: #6b7280;
-    }
-
+    .title { font-size: 18px; font-weight: 600; }
     .chat {
       flex: 1;
       padding: 16px;
       overflow-y: auto;
       background: #f9fafb;
     }
-    .message {
-      display: flex;
-      margin-bottom: 10px;
-    }
-    .message.user {
-      justify-content: flex-end;
-    }
+    .message { display: flex; margin-bottom: 10px; }
+    .message.user { justify-content: flex-end; }
     .bubble {
       max-width: 80%;
       padding: 8px 12px;
       border-radius: 14px;
       font-size: 14px;
       white-space: pre-wrap;
-      word-wrap: break-word;
     }
-    .user .bubble {
-      background: #2563eb;
-      color: white;
-      border-bottom-right-radius: 4px;
-    }
-    .assistant .bubble {
-      background: #e5e7eb;
-      color: #111827;
-      border-bottom-left-radius: 4px;
-    }
-    .bubble .meta {
-      font-size: 11px;
-      color: #9ca3af;
-      margin-bottom: 4px;
-    }
-
+    .user .bubble { background: #2563eb; color: white; }
+    .assistant .bubble { background: #e5e7eb; color: #111827; }
     .footer {
       border-top: 1px solid #e5e7eb;
       padding: 8px 12px;
-      background: #ffffff;
       display: flex;
       flex-direction: column;
-      gap: 6px;
-    }
-    .mode-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
       gap: 8px;
-      font-size: 12px;
-      color: #6b7280;
-      flex-wrap: wrap;
-    }
-    select {
-      padding: 4px 8px;
-      font-size: 12px;
-      border-radius: 999px;
-      border: 1px solid #d1d5db;
-      background: #f9fafb;
     }
     .file-label {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 4px 8px;
-      border-radius: 999px;
-      border: 1px dashed #d1d5db;
+      font-size: 12px;
       cursor: pointer;
-      font-size: 11px;
-      color: #6b7280;
+      color: #2563eb;
     }
-    .file-label span {
-      max-width: 140px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .file-label.disabled {
-      opacity: 0.4;
-      cursor: default;
-    }
-    input[type="file"] {
-      display: none;
-    }
-
-    .input-row {
-      display: flex;
-      gap: 8px;
-      align-items: flex-end;
-    }
+    input[type="file"] { display: none; }
     textarea {
-      flex: 1;
       resize: none;
-      min-height: 50px;
-      max-height: 120px;
-      padding: 8px 10px;
-      border-radius: 12px;
-      border: 1px solid #d1d5db;
+      padding: 8px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
       font-size: 14px;
     }
     button {
-      border: none;
       padding: 8px 16px;
       border-radius: 999px;
-      font-size: 14px;
-      cursor: pointer;
+      border: none;
       background: #2563eb;
       color: white;
-      white-space: nowrap;
-    }
-    button:disabled {
-      opacity: 0.6;
-      cursor: default;
-    }
-    .hint {
-      font-size: 11px;
-      color: #9ca3af;
-    }
-    .events-text {
-      font-size: 13px;
-      line-height: 1.5;
+      cursor: pointer;
     }
   </style>
 </head>
 <body>
   <div class="app">
     <div class="header">
-      <div class="header-left">
-        <div class="title">行事曆聊天機器人</div>
-        <div class="subtitle">像 ChatGPT 一樣聊天，可切換模式解析行程</div>
-      </div>
-      <div class="header-right">
-        後端：<code>/chat</code> · <code>/parse-schedule-text</code> · <code>/parse-schedule-image</code>
-      </div>
+      <div class="title">Gemini AI 聊天機器人</div>
     </div>
 
     <div id="chat" class="chat"></div>
 
     <div class="footer">
-      <div class="mode-row">
-        <div>
-          模式：
-          <select id="mode">
-            <option value="chat">💬 一般聊天（LLM）</option>
-            <option value="text">🗓 解析文字行程</option>
-            <option value="image">🖼 解析行事曆圖片</option>
-          </select>
-        </div>
+      <label class="file-label">
+        📎 上傳圖片（可選）
+        <input type="file" id="image-input" accept="image/*" />
+      </label>
 
-        <label id="file-label" class="file-label">
-          <span id="file-label-text">📎 上傳圖片（僅圖片模式需要）</span>
-          <input type="file" id="image-input" accept="image/*" />
-        </label>
-      </div>
-
-      <div class="input-row">
-        <textarea id="input" placeholder="輸入訊息，Enter 換行，Ctrl+Enter / Cmd+Enter 送出"></textarea>
-        <button id="send">送出</button>
-      </div>
-      <div class="hint">
-        💡 提示：  
-        ・聊天模式會直接 call <code>/chat</code>（接好 LLM 就能對話）  
-        ・文字行程模式會 call <code>/parse-schedule-text</code> 並把回傳的 events 整理成列表  
-        ・圖片模式會 call <code>/parse-schedule-image</code>（需要選擇一張圖片）
-      </div>
+      <textarea id="input" placeholder="輸入文字（可搭配圖片）"></textarea>
+      <button id="send">送出</button>
     </div>
   </div>
 
-  <script>
-    const BASE_URL = "https://schedule-bot-production-32ae.up.railway.app";
-    const chatEl = document.getElementById("chat");
-    const inputEl = document.getElementById("input");
-    const sendBtn = document.getElementById("send");
-    const modeEl = document.getElementById("mode");
-    const fileInput = document.getElementById("image-input");
-    const fileLabel = document.getElementById("file-label");
-    const fileLabelText = document.getElementById("file-label-text");
+<script>
+const BASE_URL = "https://schedule-bot-production-32ae.up.railway.app";
+const chatEl = document.getElementById("chat");
+const inputEl = document.getElementById("input");
+const sendBtn = document.getElementById("send");
+const fileInput = document.getElementById("image-input");
 
-    function addMessage(role, content) {
-      const msgEl = document.createElement("div");
-      msgEl.className = `message ${role}`;
+function addMessage(role, text) {
+  const div = document.createElement("div");
+  div.className = `message ${role}`;
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+  bubble.textContent = text;
+  div.appendChild(bubble);
+  chatEl.appendChild(div);
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
 
-      const bubble = document.createElement("div");
-      bubble.className = "bubble";
+async function send() {
+  const text = inputEl.value.trim();
+  const file = fileInput.files[0];
+  if (!text && !file) return;
 
-      const inner = document.createElement("div");
-      inner.textContent = content;
+  addMessage("user", text || "🖼 上傳了一張圖片");
+  inputEl.value = "";
+  sendBtn.disabled = true;
 
-      bubble.appendChild(inner);
-      msgEl.appendChild(bubble);
-      chatEl.appendChild(msgEl);
-      chatEl.scrollTop = chatEl.scrollHeight;
+  try {
+    if (file) {
+      const form = new FormData();
+      form.append("image", file);
+
+      const res = await fetch(`${BASE_URL}/parse-schedule-image`, {
+        method: "POST",
+        body: form,
+      });
+      const data = await res.json();
+      addMessage("assistant", JSON.stringify(data, null, 2));
+    } else {
+      const res = await fetch(`${BASE_URL}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text }),
+      });
+      const data = await res.json();
+      addMessage("assistant", data.reply);
     }
+  } catch {
+    addMessage("assistant", "❌ 連線失敗");
+  } finally {
+    sendBtn.disabled = false;
+  }
+}
 
-    function addAssistantStructuredMessage(title, text) {
-      const msgEl = document.createElement("div");
-      msgEl.className = "message assistant";
-
-      const bubble = document.createElement("div");
-      bubble.className = "bubble";
-
-      const meta = document.createElement("div");
-      meta.className = "meta";
-      meta.textContent = title;
-
-      const body = document.createElement("div");
-      body.className = "events-text";
-      body.textContent = text;
-
-      bubble.appendChild(meta);
-      bubble.appendChild(body);
-      msgEl.appendChild(bubble);
-      chatEl.appendChild(msgEl);
-      chatEl.scrollTop = chatEl.scrollHeight;
-    }
-
-    function formatEvents(events) {
-      if (!events || events.length === 0) return "沒有解析出任何行程。";
-      return events.map((e, i) => {
-        const time = (e.start_time || "") + (e.end_time ? " - " + e.end_time : "");
-        const loc = e.location ? ` @ ${e.location}` : "";
-        return `${i + 1}. ${e.date || ""} ${time}｜${e.title || ""}${loc}`;
-      }).join("\n");
-    }
-
-    function setImageModeEnabled(enabled) {
-      if (enabled) {
-        fileLabel.classList.remove("disabled");
-      } else {
-        fileLabel.classList.add("disabled");
-      }
-    }
-
-    modeEl.addEventListener("change", () => {
-      if (modeEl.value === "image") {
-        setImageModeEnabled(true);
-      } else {
-        setImageModeEnabled(false);
-        fileInput.value = "";
-        fileLabelText.textContent = "📎 上傳圖片（僅圖片模式需要）";
-      }
-    });
-
-    fileInput.addEventListener("change", () => {
-      const file = fileInput.files[0];
-      if (file) {
-        fileLabelText.textContent = `📎 已選擇：${file.name}`;
-      } else {
-        fileLabelText.textContent = "📎 上傳圖片（僅圖片模式需要）";
-      }
-    });
-
-    async function handleSend() {
-      const mode = modeEl.value;
-      const text = inputEl.value.trim();
-      const file = fileInput.files[0];
-
-      if (mode !== "image" && !text) return;
-      if (mode === "image" && !file) {
-        alert("請先選擇一張圖片。");
-        return;
-      }
-
-      // 顯示使用者訊息
-      if (mode === "image") {
-        addMessage("user", text ? `🖼（圖片＋文字）\n${text}` : "🖼 上傳了一張圖片");
-      } else {
-        addMessage("user", text);
-      }
-
-      inputEl.value = "";
-      sendBtn.disabled = true;
-
-      try {
-        if (mode === "chat") {
-          // 一般聊天 → /chat
-          const resp = await fetch(`${BASE_URL}/chat`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              message: text,
-              context: []
-            }),
-          });
-          const data = await resp.json();
-          addMessage("assistant", data.reply || JSON.stringify(data, null, 2));
-        } else if (mode === "text") {
-          // 解析文字行程 → /parse-schedule-text
-          const body = {
-            text: text,
-            reference_date: null, // 需要可以加 input 讓使用者選
-          };
-          const resp = await fetch(`${BASE_URL}/parse-schedule-text`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          });
-          const data = await resp.json();
-          const summary = formatEvents(data.events || []);
-          addAssistantStructuredMessage("解析文字行程結果", summary);
-        } else if (mode === "image") {
-          // 圖片行程解析 → /parse-schedule-image
-          const form = new FormData();
-          form.append("image", file);
-          // 如果要 reference_date，可以在 footer 再加一個 input
-          const resp = await fetch(`${BASE_URL}/parse-schedule-image`, {
-            method: "POST",
-            body: form,
-          });
-          const data = await resp.json();
-          const summary = formatEvents(data.events || []);
-          addAssistantStructuredMessage("解析圖片行程結果", summary);
-        }
-      } catch (err) {
-        console.error(err);
-        addMessage("assistant", "⚠️ 錯誤：無法連線到後端。");
-      } finally {
-        sendBtn.disabled = false;
-      }
-    }
-
-    sendBtn.addEventListener("click", handleSend);
-
-    // Ctrl+Enter / Cmd+Enter 送出，Enter 換行
-    inputEl.addEventListener("keydown", (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-        e.preventDefault();
-        handleSend();
-      }
-    });
-
-    // 初始訊息
-    addMessage(
-      "assistant",
-      "嗨～我是行事曆聊天機器人 👋\n" +
-      "・選擇上方模式後輸入訊息\n" +
-      "・聊天模式會用 LLM 回覆\n" +
-      "・文字/圖片模式會幫你整理成行程列表"
-    );
-    setImageModeEnabled(false);
-  </script>
+sendBtn.onclick = send;
+</script>
 </body>
 </html>
-
