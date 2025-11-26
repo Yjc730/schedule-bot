@@ -5,16 +5,13 @@ from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 # =========================
-# Gemini API Key（從 Railway 環境變數讀）
+# ✅ 正確的環境變數方式
 # =========================
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-genai.configure(api_key=GEMINI_API_KEY)
-
-model_chat = genai.GenerativeModel("gemini-2.5-flash")
-model_vision = genai.GenerativeModel("gemini-2.5-flash")
 
 # =========================
 # FastAPI
@@ -27,6 +24,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ✅ 初始化 Gemini Client
+client = genai.Client(api_key=GEMINI_API_KEY)
 
 # =========================
 # Models
@@ -55,15 +55,21 @@ class ParseScheduleResponse(BaseModel):
 # =========================
 @app.get("/")
 async def root():
-    return {"status": "ok", "message": "Gemini API Running"}
+    return {"status": "ok", "message": "Gemini AI API Running"}
 
 # =========================
 # ✅ 聊天（Gemini 2.5 Flash）
 # =========================
 @app.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
-    resp = model_chat.generate_content(req.message)
-    return ChatResponse(reply=resp.text)
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=req.message
+        )
+        return ChatResponse(reply=response.text)
+    except Exception as e:
+        return ChatResponse(reply=f"Gemini 錯誤：{str(e)}")
 
 # =========================
 # ✅ 圖片解析（Gemini Vision）
@@ -85,22 +91,25 @@ async def parse_schedule_image(image: UploadFile = File(...)):
   "raw_text": null,
   "source": "image"
 }]
-⚠️ 只回傳 JSON，不要加說明文字。
+⚠️ 僅回傳 JSON，不要加說明文字。
 """
 
-        response = model_vision.generate_content([
-            prompt,
-            {
-                "mime_type": image.content_type or "image/jpeg",
-                "data": img_bytes
-            }
-        ])
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[
+                types.Part.from_bytes(
+                    data=img_bytes,
+                    mime_type=image.content_type or "image/jpeg",
+                ),
+                prompt
+            ]
+        )
 
         raw_text = response.text
-
         match = re.search(r"\[.*\]", raw_text, re.S)
+
         if not match:
-            raise ValueError(f"Gemini 回傳非 JSON：{raw_text}")
+            raise ValueError(f"非 JSON 回傳：{raw_text}")
 
         events = json.loads(match.group(0))
         return ParseScheduleResponse(events=events)
@@ -118,4 +127,3 @@ async def parse_schedule_image(image: UploadFile = File(...)):
                 source="image"
             )
         ])
-
