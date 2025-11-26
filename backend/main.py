@@ -9,22 +9,23 @@ from google import genai
 from google.genai import types
 
 # =========================
-# ✅ 正確的 Gemini API Key 讀取方式
-# ✅ 請在 Railway 設定：
-# GEMINI_API_KEY=你的金鑰
+# ✅ 從環境變數讀取 Gemini API Key
+# Railway 需要設定：
+# GEMINI_API_KEY = 你的金鑰
 # =========================
 GEMINI_API_KEY = os.getenv("AIzaSyApby4uGU1rqVKMLG76dkX8nnZ0zFUnd2M")
 
 if not GEMINI_API_KEY:
     raise RuntimeError("❌ 缺少 GEMINI_API_KEY，請到 Railway 設定環境變數")
 
-# ✅ 初始化 Gemini Client（只初始化一次，避免衝突）
+# ✅ 初始化一次 Client（避免重複衝突）
 client = genai.Client(api_key=GEMINI_API_KEY)
 
 # =========================
 # FastAPI
 # =========================
 app = FastAPI()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -84,6 +85,7 @@ async def parse_schedule_image(image: UploadFile = File(...)):
         prompt = """
 你是一個專業行事曆圖片解析 AI。
 請從圖片中辨識所有行程，並輸出為 JSON 陣列：
+
 [{
   "title": "",
   "date": "YYYY-MM-DD",
@@ -94,6 +96,7 @@ async def parse_schedule_image(image: UploadFile = File(...)):
   "raw_text": null,
   "source": "image"
 }]
+
 ⚠️ 只回傳 JSON 陣列本體，不要加說明文字。
 """
 
