@@ -11,7 +11,7 @@ from google.genai import types
 # =========================
 # Gemini API Key
 # =========================
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_API_KEY = os.getenv("AIzaSyApby4uGU1rqVKMLG76dkX8nnZ0zFUnd2M")
 
 # =========================
 # FastAPI
@@ -122,3 +122,4 @@ async def parse_schedule_image(image: UploadFile = File(...)):
                 source="image"
             )
         ])
+
