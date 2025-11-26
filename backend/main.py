@@ -1,4 +1,5 @@
 import os
+import base64
 import requests
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,12 +10,14 @@ from typing import List, Optional
 # OpenRouter 設定
 # =========================
 
-API_KEY = os.getenv("API_KEY")  # 一定要在 Railway Variables 設定
+API_KEY = os.getenv("API_KEY")
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-MODEL_NAME = "qwen/qwen-2.5-7b-instruct"  # 免費可用模型之一
+
+TEXT_MODEL = "qwen/qwen-2.5-7b-instruct"
+VISION_MODEL = "qwen/qwen-2.5-vl-7b"
 
 # =========================
-# FastAPI App
+# FastAPI
 # =========================
 
 app = FastAPI()
@@ -44,13 +47,13 @@ class ChatResponse(BaseModel):
 
 class ParseTextRequest(BaseModel):
     text: str
-    reference_date: Optional[str] = None  # YYYY-MM-DD
+    reference_date: Optional[str] = None
 
 class Event(BaseModel):
     title: str
-    date: str        # YYYY-MM-DD
-    start_time: str  # HH:MM
-    end_time: str    # HH:MM
+    date: str
+    start_time: str
+    end_time: str
     location: Optional[str] = ""
     notes: Optional[str] = ""
     raw_text: Optional[str] = None
@@ -68,73 +71,83 @@ async def root():
     return {"status": "ok", "message": "Schedule Bot API"}
 
 # =========================
-# 真．LLM 聊天（OpenRouter）
+# ✅ 真・LLM 聊天
 # =========================
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
-    if not API_KEY:
-        return ChatResponse(reply="❌ 伺服器尚未設定 API_KEY")
-
     headers = {
         "Authorization": f"Bearer {API_KEY}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://your-app.example",  # 可隨便填
-        "X-Title": "schedule-bot"
+        "Content-Type": "application/json"
     }
 
-    messages = [
-        {"role": "system", "content": "你是一個友善、專業的繁體中文 AI 助手。"}
-    ]
+    messages = [{"role": "system", "content": "你是一個友善的繁體中文 AI 助手。"}]
 
     if req.context:
         for msg in req.context:
-            messages.append({
-                "role": msg.role,
-                "content": msg.content
-            })
+            messages.append({"role": msg.role, "content": msg.content})
 
-    messages.append({
-        "role": "user",
-        "content": req.message
-    })
+    messages.append({"role": "user", "content": req.message})
 
     payload = {
-        "model": MODEL_NAME,
+        "model": TEXT_MODEL,
         "messages": messages,
         "temperature": 0.7,
     }
 
-    try:
-        r = requests.post(OPENROUTER_URL, headers=headers, json=payload, timeout=60)
-        r.raise_for_status()
-        data = r.json()
-        reply_text = data["choices"][0]["message"]["content"]
-        return ChatResponse(reply=reply_text)
-
-    except Exception as e:
-        return ChatResponse(reply=f"❌ 呼叫 LLM 失敗：{str(e)}")
+    r = requests.post(OPENROUTER_URL, headers=headers, json=payload, timeout=60)
+    data = r.json()
+    reply_text = data["choices"][0]["message"]["content"]
+    return ChatResponse(reply=reply_text)
 
 # =========================
-# 解析文字行程（暫時還是示範版）
+# ✅ 文字 → JSON 行程解析
 # =========================
 
 @app.post("/parse-schedule-text", response_model=ParseScheduleResponse)
 async def parse_schedule_text(req: ParseTextRequest):
-    dummy_event = Event(
-        title="打掃",
-        date="2025-11-25",
-        start_time="13:00",
-        end_time="14:00",
-        location="家裡",
-        notes="這是示範用假資料，之後可改成 LLM 解析",
-        raw_text=req.text,
-        source="text",
-    )
-    return ParseScheduleResponse(events=[dummy_event])
+    headers = {
+        "Authorization": f"Bearer {API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    prompt = f"""
+請把下面的行程描述轉成 JSON 陣列，每一筆格式如下：
+{{
+  "title": "",
+  "date": "YYYY-MM-DD",
+  "start_time": "HH:MM",
+  "end_time": "HH:MM",
+  "location": "",
+  "notes": "",
+  "raw_text": "",
+  "source": "text"
+}}
+
+行程描述：
+{req.text}
+
+只回傳 JSON，不要加任何說明文字。
+"""
+
+    payload = {
+        "model": TEXT_MODEL,
+        "messages": [
+            {"role": "system", "content": "你是專業行程解析 AI。"},
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.2,
+    }
+
+    r = requests.post(OPENROUTER_URL, headers=headers, json=payload, timeout=60)
+    data = r.json()
+    raw_json = data["choices"][0]["message"]["content"]
+
+    events = eval(raw_json)  # OpenRouter 回傳乾淨 JSON 時可直接轉
+    return ParseScheduleResponse(events=events)
 
 # =========================
-# 解析圖片行程（暫時示範版）
+# ✅ 圖片 → Vision 行程解析
 # =========================
 
 @app.post("/parse-schedule-image", response_model=ParseScheduleResponse)
@@ -142,15 +155,52 @@ async def parse_schedule_image(
     image: UploadFile = File(...),
     reference_date: Optional[str] = Form(None),
 ):
-    filename = image.filename
-    dummy_event = Event(
-        title=f"從圖片（{filename}）讀到的假行程",
-        date="2025-11-26",
-        start_time="10:00",
-        end_time="11:00",
-        location="不明地點",
-        notes="這是示範用假資料，之後可改成 Vision LLM",
-        raw_text=None,
-        source="image",
-    )
-    return ParseScheduleResponse(events=[dummy_event])
+    headers = {
+        "Authorization": f"Bearer {API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    img_bytes = await image.read()
+    b64_img = base64.b64encode(img_bytes).decode("utf-8")
+
+    prompt = f"""
+請分析這張行事曆圖片，轉成 JSON 陣列，每一筆格式：
+{{
+  "title": "",
+  "date": "YYYY-MM-DD",
+  "start_time": "HH:MM",
+  "end_time": "HH:MM",
+  "location": "",
+  "notes": "",
+  "raw_text": null,
+  "source": "image"
+}}
+
+只回傳 JSON，不要其他說明。
+"""
+
+    payload = {
+        "model": VISION_MODEL,
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{b64_img}"
+                        }
+                    }
+                ]
+            }
+        ],
+        "temperature": 0.2,
+    }
+
+    r = requests.post(OPENROUTER_URL, headers=headers, json=payload, timeout=90)
+    data = r.json()
+    raw_json = data["choices"][0]["message"]["content"]
+
+    events = eval(raw_json)
+    return ParseScheduleResponse(events=events)
