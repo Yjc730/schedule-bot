@@ -1,164 +1,169 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8" />
-  <title> AI 助理</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>
-    * { box-sizing: border-box; }
+<meta charset="UTF-8" />
+<title>Gemini AI 助理</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1, maximum-scale=1"/>
+<style>
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  height: 100%;
+}
+body {
+  background: linear-gradient(135deg, #6366f1, #a855f7, #ec4899);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
 
-    body {
-      margin: 0;
-      padding: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background: linear-gradient(135deg, #6366f1, #a855f7, #ec4899);
-    }
+/* ✅ 主玻璃卡片 */
+.app {
+  width: 100%;
+  max-width: 980px;
+  height: 96vh;
+  margin: 12px;
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.3);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 
-    /* ✅ 主玻璃卡片 */
-    .app {
-      width: 100%;
-      max-width: 960px;
-      height: 92vh;
-      margin: 16px;
-      border-radius: 24px;
-      background: rgba(255, 255, 255, 0.18);
-      backdrop-filter: blur(18px);
-      -webkit-backdrop-filter: blur(18px);
-      box-shadow: 0 20px 50px rgba(0,0,0,0.25);
-      border: 1px solid rgba(255,255,255,0.3);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
+.header {
+  padding: 16px 20px;
+  font-size: 18px;
+  font-weight: 700;
+  color: white;
+  background: rgba(255,255,255,0.12);
+  border-bottom: 1px solid rgba(255,255,255,0.25);
+}
 
-    .header {
-      padding: 16px 20px;
-      font-size: 18px;
-      font-weight: 700;
-      color: white;
-      background: rgba(255,255,255,0.12);
-      border-bottom: 1px solid rgba(255,255,255,0.25);
-      text-shadow: 0 2px 6px rgba(0,0,0,0.3);
-    }
+.chat {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
 
-    .chat {
-      flex: 1;
-      padding: 20px;
-      overflow-y: auto;
-    }
+.message {
+  display: flex;
+  margin-bottom: 14px;
+  animation: fadeIn 0.3s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.message.user { justify-content: flex-end; }
 
-    .message {
-      display: flex;
-      margin-bottom: 14px;
-    }
+.bubble {
+  max-width: 78%;
+  padding: 12px 16px;
+  border-radius: 18px;
+  font-size: 14px;
+  line-height: 1.6;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+  animation: breathe 3s ease-in-out infinite;
+}
+@keyframes breathe {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.015); }
+  100% { transform: scale(1); }
+}
+.user .bubble {
+  background: linear-gradient(135deg, #60a5fa, #2563eb);
+  color: white;
+  border-bottom-right-radius: 6px;
+}
+.assistant .bubble {
+  background: rgba(255,255,255,0.8);
+  color: #111827;
+  border-bottom-left-radius: 6px;
+}
 
-    .message.user {
-      justify-content: flex-end;
-    }
+/* ✅ Think 動畫 */
+.thinking::after {
+  content: " .";
+  animation: dots 1.2s steps(3, end) infinite;
+}
+@keyframes dots {
+  0% { content: ""; }
+  33% { content: "."; }
+  66% { content: ".."; }
+  100% { content: "..."; }
+}
 
-    /* ✅ 氣泡玻璃感 */
-    .bubble {
-      max-width: 78%;
-      padding: 12px 16px;
-      border-radius: 18px;
-      font-size: 14px;
-      line-height: 1.6;
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      box-shadow: 0 6px 20px rgba(0,0,0,0.15);
-    }
+/* ✅ 底部輸入區 */
+.footer {
+  padding: 14px 16px;
+  background: rgba(255,255,255,0.15);
+  border-top: 1px solid rgba(255,255,255,0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  backdrop-filter: blur(12px);
+}
+.file-label {
+  font-size: 12px;
+  cursor: pointer;
+  color: white;
+  opacity: 0.9;
+}
+input[type="file"] { display: none; }
 
-    .user .bubble {
-      background: linear-gradient(135deg, #60a5fa, #2563eb);
-      color: white;
-      border-bottom-right-radius: 6px;
-    }
+textarea {
+  width: 100%;
+  resize: none;
+  padding: 12px;
+  border-radius: 14px;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  background: rgba(255,255,255,0.85);
+}
 
-    .assistant .bubble {
-      background: rgba(255,255,255,0.75);
-      color: #111827;
-      border-bottom-left-radius: 6px;
-    }
-
-    /* ✅ 底部玻璃輸入區 */
-    .footer {
-      padding: 14px 16px;
-      background: rgba(255,255,255,0.15);
-      border-top: 1px solid rgba(255,255,255,0.3);
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      backdrop-filter: blur(12px);
-    }
-
-    .file-label {
-      font-size: 12px;
-      cursor: pointer;
-      color: white;
-      opacity: 0.9;
-    }
-
-    input[type="file"] {
-      display: none;
-    }
-
-    textarea {
-      width: 100%;
-      resize: none;
-      padding: 12px;
-      border-radius: 14px;
-      border: none;
-      outline: none;
-      font-size: 14px;
-      background: rgba(255,255,255,0.8);
-    }
-
-    button {
-      padding: 12px;
-      border-radius: 999px;
-      border: none;
-      background: linear-gradient(135deg, #2563eb, #4f46e5);
-      color: white;
-      font-weight: 600;
-      cursor: pointer;
-      transition: transform 0.15s ease, box-shadow 0.15s ease;
-    }
-
-    button:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 6px 18px rgba(0,0,0,0.25);
-    }
-
-    button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-  </style>
+button {
+  padding: 12px;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+button:disabled { opacity: 0.6; }
+</style>
 </head>
 <body>
-  <div class="app">
-    <div class="header">✨ Gemini AI 聊天機器人</div>
 
-    <div id="chat" class="chat"></div>
+<div class="app">
+  <div class="header">✨ Gemini AI 助理</div>
+  <div id="chat" class="chat"></div>
 
-    <div class="footer">
-      <label class="file-label">
-        📎 上傳圖片（可選）
-        <input type="file" id="image-input" accept="image/*" />
-      </label>
-      <textarea id="input" placeholder="輸入文字（可搭配圖片）"></textarea>
-      <button id="send">送出</button>
-    </div>
+  <div class="footer">
+    <label class="file-label">
+      📎 上傳圖片（可選）
+      <input type="file" id="image-input" accept="image/*">
+    </label>
+
+    <textarea id="input" placeholder="輸入文字（可搭配圖片）"></textarea>
+    <button id="send">送出</button>
   </div>
+</div>
 
 <script>
 const BASE_URL = "https://schedule-bot-production-32ae.up.railway.app";
-const chatEl = document.getElementById("chat");
-const inputEl = document.getElementById("input");
+const chat = document.getElementById("chat");
+const input = document.getElementById("input");
 const sendBtn = document.getElementById("send");
 const fileInput = document.getElementById("image-input");
 
@@ -169,47 +174,75 @@ function addMessage(role, text) {
   bubble.className = "bubble";
   bubble.textContent = text;
   div.appendChild(bubble);
-  chatEl.appendChild(div);
-  chatEl.scrollTop = chatEl.scrollHeight;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+  return bubble;
+}
+
+// ✅ 打字機效果
+function typeText(el, text) {
+  let i = 0;
+  el.textContent = "";
+  const timer = setInterval(() => {
+    el.textContent += text[i++];
+    chat.scrollTop = chat.scrollHeight;
+    if (i >= text.length) clearInterval(timer);
+  }, 18);
+}
+
+// ✅ 思考中動畫
+function showThinking() {
+  return addMessage("assistant", "AI 正在思考中").classList.add("thinking");
 }
 
 async function send() {
-  const text = inputEl.value.trim();
+  const text = input.value.trim();
   const file = fileInput.files[0];
   if (!text && !file) return;
 
-  addMessage("user", text || "🖼 上傳了一張圖片");
-  inputEl.value = "";
+  addMessage("user", text || "🖼 已上傳圖片");
+  input.value = "";
   sendBtn.disabled = true;
 
+  const thinkingBubble = addMessage("assistant", "AI 正在思考中...");
+  thinkingBubble.classList.add("thinking");
+
   try {
+    let data;
     if (file) {
       const form = new FormData();
       form.append("image", file);
       const res = await fetch(`${BASE_URL}/parse-schedule-image`, {
         method: "POST",
-        body: form,
+        body: form
       });
-      const data = await res.json();
-      addMessage("assistant", JSON.stringify(data, null, 2));
+      data = await res.json();
+      thinkingBubble.textContent = JSON.stringify(data, null, 2);
     } else {
       const res = await fetch(`${BASE_URL}/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {"Content-Type": "application/json"},
         body: JSON.stringify({ message: text })
       });
-      const data = await res.json();
-      addMessage("assistant", data.reply);
+      data = await res.json();
+      thinkingBubble.classList.remove("thinking");
+      typeText(thinkingBubble, data.reply);
     }
-  } catch (err) {
-    console.error(err);
-    addMessage("assistant", "❌ 連線失敗，請稍後再試");
+  } catch (e) {
+    thinkingBubble.textContent = "❌ 發生錯誤";
   } finally {
     sendBtn.disabled = false;
   }
 }
 
-sendBtn.addEventListener("click", send);
+sendBtn.onclick = send;
+input.addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    send();
+  }
+});
 </script>
+
 </body>
 </html>
