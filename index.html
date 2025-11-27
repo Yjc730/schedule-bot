@@ -1,249 +1,299 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-<meta charset="UTF-8" />
-<title>Gemini AI 助理</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1, maximum-scale=1"/>
-<style>
-* { box-sizing: border-box; }
-html, body {
-  margin: 0;
-  padding: 0;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  height: 100%;
-}
-body {
-  background: linear-gradient(135deg, #6366f1, #a855f7, #ec4899);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  overflow: hidden;
-}
+  <meta charset="UTF-8" />
+  <title>Gemini AI 助理</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-/* ✅ 主玻璃卡片 */
-.app {
-  width: 100%;
-  max-width: 980px;
-  height: 96vh;
-  margin: 12px;
-  border-radius: 26px;
-  background: rgba(255, 255, 255, 0.18);
-  backdrop-filter: blur(18px);
-  box-shadow: 0 20px 50px rgba(0,0,0,0.25);
-  border: 1px solid rgba(255,255,255,0.3);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
+  <style>
+    :root {
+      --bg: linear-gradient(135deg, #6366f1, #a855f7, #ec4899);
+      --glass: rgba(255,255,255,0.18);
+      --bubble-user: linear-gradient(135deg, #60a5fa, #2563eb);
+      --bubble-ai: rgba(255,255,255,0.85);
+      --text: #111;
+    }
 
-.header {
-  padding: 16px 20px;
-  font-size: 18px;
-  font-weight: 700;
-  color: white;
-  background: rgba(255,255,255,0.12);
-  border-bottom: 1px solid rgba(255,255,255,0.25);
-}
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --glass: rgba(30,30,30,0.6);
+        --bubble-ai: rgba(40,40,40,0.8);
+        --text: #f9fafb;
+      }
+    }
 
-.chat {
-  flex: 1;
-  padding: 20px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-}
+    * { box-sizing: border-box; }
 
-.message {
-  display: flex;
-  margin-bottom: 14px;
-  animation: fadeIn 0.3s ease;
-}
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.message.user { justify-content: flex-end; }
+    body {
+      margin: 0;
+      height: 100vh;
+      background: var(--bg);
+      font-family: system-ui, -apple-system;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
 
-.bubble {
-  max-width: 78%;
-  padding: 12px 16px;
-  border-radius: 18px;
-  font-size: 14px;
-  line-height: 1.6;
-  backdrop-filter: blur(8px);
-  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
-  animation: breathe 3s ease-in-out infinite;
-}
-@keyframes breathe {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.015); }
-  100% { transform: scale(1); }
-}
-.user .bubble {
-  background: linear-gradient(135deg, #60a5fa, #2563eb);
-  color: white;
-  border-bottom-right-radius: 6px;
-}
-.assistant .bubble {
-  background: rgba(255,255,255,0.8);
-  color: #111827;
-  border-bottom-left-radius: 6px;
-}
+    .app {
+      width: 100%;
+      max-width: 960px;
+      height: 94vh;
+      background: var(--glass);
+      backdrop-filter: blur(18px);
+      border-radius: 24px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.3);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
 
-/* ✅ Think 動畫 */
-.thinking::after {
-  content: " .";
-  animation: dots 1.2s steps(3, end) infinite;
-}
-@keyframes dots {
-  0% { content: ""; }
-  33% { content: "."; }
-  66% { content: ".."; }
-  100% { content: "..."; }
-}
+    .header {
+      padding: 16px;
+      color: white;
+      font-weight: bold;
+      text-align: center;
+      border-bottom: 1px solid rgba(255,255,255,.3);
+    }
 
-/* ✅ 底部輸入區 */
-.footer {
-  padding: 14px 16px;
-  background: rgba(255,255,255,0.15);
-  border-top: 1px solid rgba(255,255,255,0.3);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  backdrop-filter: blur(12px);
-}
-.file-label {
-  font-size: 12px;
-  cursor: pointer;
-  color: white;
-  opacity: 0.9;
-}
-input[type="file"] { display: none; }
+    .chat {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      scroll-behavior: smooth;
+    }
 
-textarea {
-  width: 100%;
-  resize: none;
-  padding: 12px;
-  border-radius: 14px;
-  border: none;
-  outline: none;
-  font-size: 14px;
-  background: rgba(255,255,255,0.85);
-}
+    .message {
+      display: flex;
+      margin-bottom: 14px;
+      animation: fadeIn .3s ease;
+    }
 
-button {
-  padding: 12px;
-  border-radius: 999px;
-  border: none;
-  background: linear-gradient(135deg, #2563eb, #4f46e5);
-  color: white;
-  font-weight: 600;
-  cursor: pointer;
-}
-button:disabled { opacity: 0.6; }
-</style>
+    .user { justify-content: flex-end; }
+    .assistant { justify-content: flex-start; }
+
+    .bubble {
+      backdrop-filter: blur(10px);
+      padding: 12px 16px;
+      border-radius: 18px;
+      max-width: 80%;
+      line-height: 1.6;
+      box-shadow: 0 6px 20px rgba(0,0,0,.15);
+      animation: breathe 3s ease-in-out infinite;
+    }
+
+    .user .bubble {
+      background: var(--bubble-user);
+      color: white;
+      border-bottom-right-radius: 6px;
+    }
+
+    .assistant .bubble {
+      background: var(--bubble-ai);
+      color: var(--text);
+      border-bottom-left-radius: 6px;
+    }
+
+    .thinking {
+      font-style: italic;
+      opacity: .6;
+      animation: blink 1.4s infinite both;
+    }
+
+    img.preview {
+      max-width: 160px;
+      border-radius: 12px;
+      margin-top: 6px;
+    }
+
+    .footer {
+      padding: 14px;
+      border-top: 1px solid rgba(255,255,255,.3);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    textarea {
+      width: 100%;
+      resize: none;
+      padding: 10px;
+      border-radius: 12px;
+      border: none;
+      font-size: 15px;
+    }
+
+    .controls {
+      display: flex;
+      gap: 8px;
+    }
+
+    button {
+      flex: 1;
+      border: none;
+      border-radius: 999px;
+      padding: 10px;
+      background: #2563eb;
+      color: white;
+      cursor: pointer;
+    }
+
+    input[type="file"] { display: none; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: none; }
+    }
+
+    @keyframes blink {
+      0% { opacity: .3; }
+      50% { opacity: 1; }
+      100% { opacity: .3; }
+    }
+
+    @keyframes breathe {
+      0% { box-shadow: 0 4px 12px rgba(0,0,0,.2); }
+      50% { box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+      100% { box-shadow: 0 4px 12px rgba(0,0,0,.2); }
+    }
+  </style>
 </head>
-<body>
 
+<body>
 <div class="app">
-  <div class="header">✨ AI 助理</div>
+  <div class="header">✨ Gemini AI 助理</div>
   <div id="chat" class="chat"></div>
 
   <div class="footer">
-    <label class="file-label">
-      📎 上傳圖片（可選）
+    <label style="color:white;cursor:pointer;">
+      📎 圖片
       <input type="file" id="image-input" accept="image/*">
     </label>
 
-    <textarea id="input" placeholder="輸入文字（可搭配圖片）"></textarea>
-    <button id="send">送出</button>
+    <textarea id="input" placeholder="輸入文字或用語音…"></textarea>
+
+    <div class="controls">
+      <button id="mic">🎤</button>
+      <button id="send">送出</button>
+    </div>
   </div>
 </div>
 
 <script>
 const BASE_URL = "https://schedule-bot-production-32ae.up.railway.app";
-const chat = document.getElementById("chat");
-const input = document.getElementById("input");
+const chatEl = document.getElementById("chat");
+const inputEl = document.getElementById("input");
 const sendBtn = document.getElementById("send");
 const fileInput = document.getElementById("image-input");
+const micBtn = document.getElementById("mic");
 
-function addMessage(role, text) {
-  const div = document.createElement("div");
-  div.className = `message ${role}`;
-  const bubble = document.createElement("div");
-  bubble.className = "bubble";
-  bubble.textContent = text;
-  div.appendChild(bubble);
-  chat.appendChild(div);
-  chat.scrollTop = chat.scrollHeight;
-  return bubble;
+/* ✅ LocalStorage */
+const history = JSON.parse(localStorage.getItem("chat_history") || "[]");
+history.forEach(m => render(m.role, m.text, m.image));
+scroll();
+
+/* ✅ Speech Recognition */
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+const recog = SpeechRecognition ? new SpeechRecognition() : null;
+if (recog) {
+  recog.lang = "zh-TW";
+  micBtn.onclick = () => recog.start();
+  recog.onresult = e => inputEl.value = e.results[0][0].transcript;
 }
 
-// ✅ 打字機效果
-function typeText(el, text) {
-  let i = 0;
-  el.textContent = "";
-  const timer = setInterval(() => {
-    el.textContent += text[i++];
-    chat.scrollTop = chat.scrollHeight;
-    if (i >= text.length) clearInterval(timer);
-  }, 18);
-}
-
-// ✅ 思考中動畫
-function showThinking() {
-  return addMessage("assistant", "AI 正在思考中").classList.add("thinking");
-}
-
-async function send() {
-  const text = input.value.trim();
+/* ✅ 主送出 */
+sendBtn.onclick = async () => {
+  const text = inputEl.value.trim();
   const file = fileInput.files[0];
   if (!text && !file) return;
 
-  addMessage("user", text || "🖼 已上傳圖片");
-  input.value = "";
-  sendBtn.disabled = true;
+  render("user", text, file);
+  save("user", text, file);
+  inputEl.value = "";
 
-  const thinkingBubble = addMessage("assistant", "AI 正在思考中...");
-  thinkingBubble.classList.add("thinking");
+  const typing = render("assistant", "… 正在思考中", null, true);
 
   try {
-    let data;
+    let reply = "";
     if (file) {
       const form = new FormData();
       form.append("image", file);
-      const res = await fetch(`${BASE_URL}/parse-schedule-image`, {
-        method: "POST",
-        body: form
-      });
-      data = await res.json();
-      thinkingBubble.textContent = JSON.stringify(data, null, 2);
+      const res = await fetch(`${BASE_URL}/parse-schedule-image`, { method:"POST", body: form });
+      const data = await res.json();
+      reply = JSON.stringify(data, null, 2);
     } else {
       const res = await fetch(`${BASE_URL}/chat`, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({ message: text })
       });
-      data = await res.json();
-      thinkingBubble.classList.remove("thinking");
-      typeText(thinkingBubble, data.reply);
+      const data = await res.json();
+      reply = data.reply;
     }
+
+    typing.remove();
+    typeWriter(reply);
+
   } catch (e) {
-    thinkingBubble.textContent = "❌ 發生錯誤";
-  } finally {
-    sendBtn.disabled = false;
+    typing.textContent = "❌ 連線失敗";
   }
+
+  fileInput.value = "";
+};
+
+/* ✅ UI Functions */
+function render(role, text, image, loading=false) {
+  const div = document.createElement("div");
+  div.className = `message ${role}`;
+
+  const b = document.createElement("div");
+  b.className = "bubble";
+
+  if (loading) b.classList.add("thinking");
+  b.textContent = text;
+  div.appendChild(b);
+
+  if (image && image.type) {
+    const img = document.createElement("img");
+    img.className = "preview";
+    img.src = URL.createObjectURL(image);
+    b.appendChild(img);
+  }
+
+  chatEl.appendChild(div);
+  scroll();
+  return b;
 }
 
-sendBtn.onclick = send;
-input.addEventListener("keydown", e => {
-  if (e.key === "Enter" && !e.shiftKey) {
-    e.preventDefault();
-    send();
-  }
-});
-</script>
+function save(role, text, image) {
+  let data = JSON.parse(localStorage.getItem("chat_history") || "[]");
+  data.push({ role, text });
+  localStorage.setItem("chat_history", JSON.stringify(data));
+}
 
+function typeWriter(text) {
+  let i = 0;
+  const bubble = render("assistant", "");
+  const timer = setInterval(() => {
+    bubble.textContent += text[i++];
+    scroll();
+    if (i >= text.length) {
+      clearInterval(timer);
+      speak(text);
+      save("assistant", text);
+    }
+  }, 18);
+}
+
+function scroll() {
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+
+/* ✅ 語音朗讀 */
+function speak(text) {
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "zh-TW";
+  speechSynthesis.speak(u);
+}
+</script>
 </body>
 </html>
-
