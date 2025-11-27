@@ -6,20 +6,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <style>
 :root {
-  --bg: linear-gradient(135deg, #6366f1, #a855f7, #ec4899);
-  --glass: rgba(255,255,255,.18);
-  --bubble-user: linear-gradient(135deg, #60a5fa, #2563eb);
-  --bubble-ai: rgba(255,255,255,.9);
+  --bg: #f4f4f5;
+  --glass: rgba(255,255,255,.82);
+  --bubble-user: #2563eb;
+  --bubble-ai: #ffffff;
   --text: #111;
 }
 body.dark {
-  --bg: linear-gradient(135deg, #020617, #0f172a);
-  --glass: rgba(30,30,30,.7);
-  --bubble-ai: rgba(40,40,40,.85);
+  --bg: #020617;
+  --glass: rgba(20,20,20,.85);
+  --bubble-ai: #1f2933;
   --text: #f9fafb;
 }
 * { box-sizing: border-box; }
-
 body {
   margin: 0;
   height: 100vh;
@@ -29,33 +28,49 @@ body {
   justify-content: center;
   align-items: center;
   overflow: hidden;
+  transition: .3s;
 }
 
-/* ✅ 掃描線光束背景 */
+/* ✅ 掃描線光束 */
 body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background: linear-gradient(
+  content:"";
+  position:fixed;
+  inset:0;
+  background:linear-gradient(
     to bottom,
     transparent 0%,
-    rgba(255,255,255,0.12) 50%,
+    rgba(255,255,255,.15) 50%,
     transparent 100%
   );
-  animation: scan 6s linear infinite;
-  pointer-events: none;
-  z-index: 0;
+  animation:scan 6s linear infinite;
+  pointer-events:none;
 }
-
 @keyframes scan {
-  0% { transform: translateY(-100%); }
-  100% { transform: translateY(100%); }
+  0% {transform:translateY(-100%)}
+  100% {transform:translateY(100%)}
 }
 
-/* ✅ 手機滑動慣性 */
-.chat {
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
+/* ✅ 歷史抽屜 */
+.history {
+  position: fixed;
+  left: -260px;
+  top: 0;
+  width: 260px;
+  height: 100vh;
+  background: var(--glass);
+  backdrop-filter: blur(16px);
+  padding: 12px;
+  transition: .3s;
+  overflow-y: auto;
+  z-index: 10;
+}
+.history.open { left: 0; }
+.history h3 { margin: 8px 0; }
+.history-item {
+  font-size: 13px;
+  padding: 6px;
+  border-bottom: 1px solid #ccc;
+  cursor:pointer;
 }
 
 .app {
@@ -71,142 +86,90 @@ body::after {
   flex-direction: column;
   overflow: hidden;
   position: relative;
-  z-index: 1;
+  z-index: 2;
 }
-
 .header {
   padding: 14px;
-  color: white;
+  color: var(--text);
   font-weight: bold;
   text-align: center;
   border-bottom: 1px solid rgba(255,255,255,.3);
   display: flex;
   justify-content: space-between;
-  align-items: center;
 }
-
-.toggle {
-  cursor: pointer;
-  font-size: 20px;
-}
+.toggle { cursor:pointer; }
 
 .chat {
   flex: 1;
   padding: 18px;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
-.message {
-  display: flex;
-  margin-bottom: 14px;
-  animation: fadeIn .25s ease;
-}
-
-.user { justify-content: flex-end; }
-.assistant { justify-content: flex-start; }
+.message { display:flex; margin-bottom:14px; animation:fadeIn .25s; }
+.user { justify-content:flex-end; }
+.assistant { justify-content:flex-start; }
 
 .bubble {
-  backdrop-filter: blur(10px);
   padding: 12px 16px;
   border-radius: 18px;
   max-width: 80%;
   line-height: 1.6;
   box-shadow: 0 6px 20px rgba(0,0,0,.15);
-  animation: breathe 3s ease-in-out infinite;
+  animation: breathe 3s infinite;
   color: var(--text);
 }
+.user .bubble { background:var(--bubble-user); color:#fff; border-bottom-right-radius:6px; }
+.assistant .bubble { background:var(--bubble-ai); border-bottom-left-radius:6px; }
 
-.user .bubble {
-  background: var(--bubble-user);
-  color: white;
-  border-bottom-right-radius: 6px;
-}
-
-.assistant .bubble {
-  background: var(--bubble-ai);
-  border-bottom-left-radius: 6px;
-}
-
-.thinking {
-  opacity: .6;
-  animation: blink 1.4s infinite;
-}
-
-.time {
-  font-size: 11px;
-  opacity: .6;
-  margin-top: 6px;
-}
+.thinking { opacity:.6; animation: blink 1.4s infinite; }
+.time { font-size:11px; opacity:.6; margin-top:6px; }
 
 .footer {
-  padding: 14px;
+  padding: 12px;
   border-top: 1px solid rgba(255,255,255,.3);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
 }
+textarea { width:100%; resize:none; padding:10px; border-radius:12px; border:none; }
 
-textarea {
-  resize: none;
-  padding: 10px;
-  border-radius: 12px;
-  border: none;
-  font-size: 15px;
-}
-
-.controls {
-  display: flex;
-  gap: 8px;
-}
-
+.controls { display:flex; gap:8px; margin-top:6px; }
 button {
-  flex: 1;
-  border: none;
-  border-radius: 999px;
-  padding: 10px;
-  background: #2563eb;
-  color: white;
-  cursor: pointer;
+  flex:1;
+  border:none;
+  border-radius:999px;
+  padding:10px;
+  background:#2563eb;
+  color:white;
 }
+input[type=file]{display:none;}
 
-input[type=file] { display:none; }
-
-@keyframes fadeIn {
-  from { opacity:0; transform: translateY(6px); }
-  to   { opacity:1; transform:none; }
-}
-
-@keyframes blink {
-  0% {opacity:.3}
-  50%{opacity:1}
-  100%{opacity:.3}
-}
-
+@keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1} }
+@keyframes blink {50%{opacity:1}}
 @keyframes breathe {
-  0% { box-shadow: 0 4px 12px rgba(0,0,0,.2); }
-  50% { box-shadow: 0 8px 24px rgba(0,0,0,.35); }
-  100% { box-shadow: 0 4px 12px rgba(0,0,0,.2); }
+  0%{box-shadow:0 4px 12px rgba(0,0,0,.2)}
+  50%{box-shadow:0 8px 24px rgba(0,0,0,.4)}
+  100%{box-shadow:0 4px 12px rgba(0,0,0,.2)}
 }
 </style>
 </head>
 <body>
 
+<div id="history" class="history">
+  <h3>📜 歷史紀錄</h3>
+  <div id="historyList"></div>
+</div>
+
 <div class="app">
   <div class="header">
+    <span id="openHistory">📜</span>
     ✨ AI 助理
-    <div id="themeToggle" class="toggle">🌓</div>
+    <span id="themeToggle">🌓</span>
   </div>
 
   <div id="chat" class="chat"></div>
 
   <div class="footer">
-    <label style="color:white;cursor:pointer;">
-      📎 圖片
-      <input type="file" id="image-input" accept="image/*">
-    </label>
-
-    <textarea id="input" placeholder="輸入文字或用語音…"></textarea>
-
+    <label>📎 圖片 <input type="file" id="image-input"></label>
+    <textarea id="input" placeholder="輸入文字或語音…"></textarea>
     <div class="controls">
       <button id="mic">🎤</button>
       <button id="send">送出</button>
@@ -219,106 +182,108 @@ const BASE_URL = "https://schedule-bot-production-32ae.up.railway.app";
 const chatEl = document.getElementById("chat");
 const inputEl = document.getElementById("input");
 const sendBtn = document.getElementById("send");
-const fileInput = document.getElementById("image-input");
 const micBtn = document.getElementById("mic");
-const toggle = document.getElementById("themeToggle");
+const historyEl = document.getElementById("history");
+const historyList = document.getElementById("historyList");
 
-/* ✅ 深色模式 */
-if (localStorage.getItem("theme") === "dark") document.body.classList.add("dark");
-toggle.onclick = () => {
+/* ✅ 主題 */
+if (localStorage.theme === "dark") document.body.classList.add("dark");
+themeToggle.onclick = () => {
   document.body.classList.toggle("dark");
-  localStorage.setItem("theme", document.body.classList.contains("dark") ? "dark" : "light");
+  localStorage.theme = document.body.classList.contains("dark") ? "dark" : "light";
 };
 
-/* ✅ LocalStorage */
-const history = JSON.parse(localStorage.getItem("chat_history") || "[]");
-history.forEach(m => render(m.role, m.text));
-scroll();
+/* ✅ 歷史抽屜 */
+openHistory.onclick = () => historyEl.classList.toggle("open");
 
 /* ✅ 語音輸入 */
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-const recog = SpeechRecognition ? new SpeechRecognition() : null;
-if (recog) {
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (SR) {
+  const recog = new SR();
   recog.lang = "zh-TW";
   micBtn.onclick = () => recog.start();
   recog.onresult = e => inputEl.value = e.results[0][0].transcript;
 }
 
-/* ✅ 送出 */
+/* ✅ LocalStorage */
+let history = JSON.parse(localStorage.getItem("chat_history") || "[]");
+history.forEach(m => render(m.role,m.text));
+renderHistory();
+
 sendBtn.onclick = async () => {
   const text = inputEl.value.trim();
-  const file = fileInput.files[0];
-  if (!text && !file) return;
-
+  if (!text) return;
   render("user", text);
   save("user", text);
   inputEl.value = "";
 
-  const thinking = render("assistant", "… 正在思考中", true);
+  const thinking = render("assistant","… 正在思考中",true);
   const start = performance.now();
 
   try {
-    const res = await fetch(`${BASE_URL}/chat`, {
+    const res = await fetch(`${BASE_URL}/chat`,{
       method:"POST",
       headers:{ "Content-Type":"application/json" },
       body: JSON.stringify({ message:text })
     });
     const data = await res.json();
-    const cost = ((performance.now() - start)/1000).toFixed(2);
-
+    const cost = ((performance.now()-start)/1000).toFixed(2);
     thinking.remove();
-    typeWriter(data.reply, cost);
+    typeWriter(data.reply,cost);
   } catch {
-    thinking.textContent = "❌ 連線失敗";
+    thinking.textContent="❌ 連線失敗";
   }
 };
 
-/* ✅ UI Functions */
-function render(role, text, loading=false) {
-  const div = document.createElement("div");
-  div.className = `message ${role}`;
-  const b = document.createElement("div");
-  b.className = "bubble";
-  if (loading) b.classList.add("thinking");
-  b.textContent = text;
+function render(role,text,loading=false){
+  const div=document.createElement("div");
+  div.className=`message ${role}`;
+  const b=document.createElement("div");
+  b.className="bubble";
+  if(loading) b.classList.add("thinking");
+  b.textContent=text;
   div.appendChild(b);
   chatEl.appendChild(div);
-  scroll();
+  chatEl.scrollTop=chatEl.scrollHeight;
   return b;
 }
 
-function typeWriter(text, time) {
-  const bubble = render("assistant", "");
-  let i = 0;
-  const timer = setInterval(() => {
-    bubble.textContent += text[i++];
-    scroll();
-    if (i >= text.length) {
+function typeWriter(text,time){
+  const bubble=render("assistant","");
+  let i=0;
+  const timer=setInterval(()=>{
+    bubble.textContent+=text[i++];
+    if(i>=text.length){
       clearInterval(timer);
-      const t = document.createElement("div");
-      t.className = "time";
-      t.textContent = `⏱ ${time}s`;
+      const t=document.createElement("div");
+      t.className="time";
+      t.textContent=`⏱ ${time}s`;
       bubble.appendChild(t);
       speak(text);
-      save("assistant", text);
+      save("assistant",text);
     }
-  }, 18);
+  },18);
 }
 
-function save(role, text) {
-  const data = JSON.parse(localStorage.getItem("chat_history") || "[]");
-  data.push({ role, text });
-  localStorage.setItem("chat_history", JSON.stringify(data));
+function save(role,text){
+  history.push({role,text});
+  localStorage.setItem("chat_history",JSON.stringify(history));
+  renderHistory();
 }
 
-function scroll() {
-  chatEl.scrollTop = chatEl.scrollHeight;
+function renderHistory(){
+  historyList.innerHTML="";
+  history.forEach(m=>{
+    const d=document.createElement("div");
+    d.className="history-item";
+    d.textContent=m.text;
+    historyList.appendChild(d);
+  });
 }
 
-/* ✅ 語音朗讀 */
-function speak(text) {
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = "zh-TW";
+function speak(text){
+  const u=new SpeechSynthesisUtterance(text);
+  u.lang="zh-TW";
   speechSynthesis.speak(u);
 }
 </script>
