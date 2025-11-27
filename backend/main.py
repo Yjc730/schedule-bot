@@ -5,25 +5,14 @@ from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
-
 import google.genai as genai
 from google.genai import types
 
-# =========================
-# Gemini API Key
-# =========================
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-
-if not GEMINI_API_KEY:
-    raise RuntimeError("❌ GEMINI_API_KEY 沒有設定在環境變數中")
 
 client = genai.Client(api_key=GEMINI_API_KEY)
 
-# =========================
-# FastAPI
-# =========================
 app = FastAPI()
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -32,9 +21,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# =========================
-# Models
-# =========================
 class ChatRequest(BaseModel):
     message: str
 
@@ -54,16 +40,10 @@ class Event(BaseModel):
 class ParseScheduleResponse(BaseModel):
     events: List[Event]
 
-# =========================
-# Root
-# =========================
 @app.get("/")
 async def root():
-    return {"status": "ok", "message": "Gemini 2.5 Flash API Running"}
+    return {"status": "ok", "message": "Gemini AI API Running"}
 
-# =========================
-# ✅ 聊天（Gemini 2.5 Flash）
-# =========================
 @app.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
     response = client.models.generate_content(
@@ -72,9 +52,6 @@ async def chat(req: ChatRequest):
     )
     return ChatResponse(reply=response.text)
 
-# =========================
-# ✅ 圖片解析（Gemini Vision）
-# =========================
 @app.post("/parse-schedule-image", response_model=ParseScheduleResponse)
 async def parse_schedule_image(image: UploadFile = File(...)):
     try:
@@ -108,10 +85,6 @@ async def parse_schedule_image(image: UploadFile = File(...)):
 
         raw_text = response.text
         match = re.search(r"\[.*\]", raw_text, re.S)
-
-        if not match:
-            raise ValueError(f"非 JSON 回傳：{raw_text}")
-
         events = json.loads(match.group(0))
         return ParseScheduleResponse(events=events)
 
@@ -124,7 +97,5 @@ async def parse_schedule_image(image: UploadFile = File(...)):
                 end_time="",
                 location="",
                 notes=str(e),
-                raw_text=None,
-                source="image"
             )
         ])
