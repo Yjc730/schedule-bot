@@ -5,16 +5,19 @@ from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
+
 import google.genai as genai
 from google.genai import types
 
 # =========================
-# ✅ 從 Railway 讀取 Gemini API Key
+# Gemini API Key
 # =========================
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 if not GEMINI_API_KEY:
-    raise ValueError("❌ GEMINI_API_KEY 未設定在 Railway Variables")
+    raise RuntimeError("❌ GEMINI_API_KEY 沒有設定在環境變數中")
+
+client = genai.Client(api_key=GEMINI_API_KEY)
 
 # =========================
 # FastAPI
@@ -28,8 +31,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-client = genai.Client(api_key=GEMINI_API_KEY)
 
 # =========================
 # Models
@@ -54,11 +55,11 @@ class ParseScheduleResponse(BaseModel):
     events: List[Event]
 
 # =========================
-# ✅ Root（健康檢查）
+# Root
 # =========================
 @app.get("/")
 async def root():
-    return {"status": "ok", "message": "Gemini 2.5 Flash API Running ✅"}
+    return {"status": "ok", "message": "Gemini 2.5 Flash API Running"}
 
 # =========================
 # ✅ 聊天（Gemini 2.5 Flash）
