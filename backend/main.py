@@ -62,11 +62,26 @@ async def root():
 # =========================
 @app.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
+
+    prompt = f"""
+你是一個溫暖、自然、會用繁體中文聊天的 AI 助手。
+說話方式像真人，不要太機器人，可以適度關心、追問、回應情緒。
+使用者說：
+{req.message}
+"""
+
     response = client.models.generate_content(
         model="gemini-2.5-flash",
-        contents=req.message
+        contents=prompt,
+        generation_config={
+            "temperature": 0.9,        # ✅ 像人關鍵
+            "top_p": 0.95,
+            "max_output_tokens": 1024,
+        }
     )
+
     return ChatResponse(reply=response.text)
+
 
 # =========================
 # ✅ 圖片解析（Gemini Vision）
@@ -125,3 +140,4 @@ async def parse_schedule_image(
                 source="image"
             )
         ])
+
