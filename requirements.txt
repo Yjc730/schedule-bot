@@ -4,3 +4,5 @@ python-multipart
 requests
 pydantic
 google-generativeai
+google-genai
+
