@@ -5,16 +5,13 @@ from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
-
-import google.generativeai as genai
+import google.genai as genai
+from google.genai import types
 
 # =========================
-# Gemini API Key（從 Railway 讀）
+# Gemini API Key（從 Railway Variables 讀）
 # =========================
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel("gemini-2.5-flash")
 
 # =========================
 # FastAPI
@@ -27,6 +24,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+client = genai.Client(api_key=GEMINI_API_KEY)
 
 # =========================
 # Models
@@ -51,19 +50,22 @@ class ParseScheduleResponse(BaseModel):
     events: List[Event]
 
 # =========================
-# Root
+# Root（健康檢查）
 # =========================
 @app.get("/")
 async def root():
-    return {"status": "ok", "message": "Gemini 2.5 Flash API Running"}
+    return {"status": "ok", "message": "Gemini AI API Running"}
 
 # =========================
 # ✅ 聊天（Gemini 2.5 Flash）
 # =========================
 @app.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
-    resp = model.generate_content(req.message)
-    return ChatResponse(reply=resp.text)
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=req.message
+    )
+    return ChatResponse(reply=response.text)
 
 # =========================
 # ✅ 圖片解析（Gemini Vision）
@@ -88,14 +90,19 @@ async def parse_schedule_image(image: UploadFile = File(...)):
 ⚠️ 僅回傳 JSON 陣列，不要加說明文字。
 """
 
-        response = model.generate_content([
-            {"mime_type": image.content_type or "image/jpeg", "data": img_bytes},
-            prompt
-        ])
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[
+                types.Part.from_bytes(
+                    data=img_bytes,
+                    mime_type=image.content_type or "image/jpeg",
+                ),
+                prompt,
+            ],
+        )
 
         raw_text = response.text
         match = re.search(r"\[.*\]", raw_text, re.S)
-
         if not match:
             raise ValueError(f"非 JSON 回傳：{raw_text}")
 
