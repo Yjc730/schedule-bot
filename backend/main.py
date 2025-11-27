@@ -5,6 +5,7 @@ from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
+
 import google.genai as genai
 from google.genai import types
 
@@ -12,8 +13,6 @@ from google.genai import types
 # Gemini API Key（從 Railway 讀）
 # =========================
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-
-# ✅ 一定不要再 raise，避免服務直接崩潰
 client = genai.Client(api_key=GEMINI_API_KEY)
 
 # =========================
@@ -51,6 +50,11 @@ class ParseScheduleResponse(BaseModel):
     events: List[Event]
 
 # =========================
+# ✅ 聊天上下文記憶
+# =========================
+chat_memory: List[dict] = []
+
+# =========================
 # Root（健康檢查）
 # =========================
 @app.get("/")
@@ -58,55 +62,45 @@ async def root():
     return {"status": "ok", "message": "Gemini AI API Running"}
 
 # =========================
-# ✅ 聊天（Gemini 2.5 Flash）
+# ✅ 聊天（有上下文 + 像人）
 # =========================
-# ✅ 聊天（有上下文記憶版）
-# =========================
-chat_memory: List[str] = []
-
 @app.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
     try:
-        prompt = f"""
-你是一個溫暖、自然、會用繁體中文聊天的 AI 助手，
-說話方式像真人，不要太機器人。
+        chat_memory.append({"role": "user", "content": req.message})
 
-使用者說：
-{req.message}
-"""
+        system_prompt = {
+            "role": "system",
+            "content": "你是一個溫暖、自然、會用繁體中文聊天的 AI 助手，說話像真人。"
+        }
+
+        messages = [system_prompt] + chat_memory[-10:]
+
         response = client.models.generate_content(
             model="gemini-2.5-flash",
-            contents=prompt
+            contents=[m["content"] for m in messages]
         )
-        return ChatResponse(reply=response.text)
+
+        reply = response.text.strip()
+        chat_memory.append({"role": "assistant", "content": reply})
+
+        return ChatResponse(reply=reply)
+
     except Exception as e:
-        return ChatResponse(reply=f"❌ Gemini 錯誤：{str(e)}")
-
-
+        return ChatResponse(reply=f"❌ Gemini 聊天錯誤：{str(e)}")
 
 # =========================
-# ✅ 圖片解析（Gemini Vision）
+# ✅ 圖片辨識（通用版本：這是什麼圖）
 # =========================
 @app.post("/parse-schedule-image", response_model=ParseScheduleResponse)
-async def parse_schedule_image(
-    image: UploadFile = File(...)
-):
+async def parse_schedule_image(image: UploadFile = File(...)):
     try:
         img_bytes = await image.read()
 
         prompt = """
-請從圖片中辨識所有行程，並輸出為 JSON 陣列：
-[{
-  "title": "",
-  "date": "YYYY-MM-DD",
-  "start_time": "HH:MM",
-  "end_time": "HH:MM",
-  "location": "",
-  "notes": "",
-  "raw_text": null,
-  "source": "image"
-}]
-⚠️ 僅回傳 JSON 陣列，不要加說明文字。
+請用「繁體中文」詳細描述這張圖片的內容，
+如果圖片中有物品、人物、動作、場景請一併說明，
+不要輸出 JSON，只要自然語言說明。
 """
 
         response = client.models.generate_content(
@@ -120,13 +114,21 @@ async def parse_schedule_image(
             ],
         )
 
-        raw_text = response.text
-        match = re.search(r"\[.*\]", raw_text, re.S)
-        if not match:
-            raise ValueError(f"非 JSON 回傳：{raw_text}")
+        description = response.text.strip()
 
-        events = json.loads(match.group(0))
-        return ParseScheduleResponse(events=events)
+        # ✅ 包裝成你前端能吃的格式
+        return ParseScheduleResponse(events=[
+            Event(
+                title="圖片內容",
+                date="",
+                start_time="",
+                end_time="",
+                location="",
+                notes=description,
+                raw_text=None,
+                source="image"
+            )
+        ])
 
     except Exception as e:
         return ParseScheduleResponse(events=[
@@ -141,7 +143,3 @@ async def parse_schedule_image(
                 source="image"
             )
         ])
-
-
-
-
