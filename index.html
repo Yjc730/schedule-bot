@@ -4,7 +4,6 @@
 <meta charset="UTF-8" />
 <title>AI 助理</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-
 <style>
 :root {
   --bg: linear-gradient(135deg, #6366f1, #a855f7, #ec4899);
@@ -13,14 +12,12 @@
   --bubble-ai: rgba(255,255,255,.9);
   --text: #111;
 }
-
 body.dark {
   --bg: linear-gradient(135deg, #020617, #0f172a);
   --glass: rgba(30,30,30,.7);
   --bubble-ai: rgba(40,40,40,.85);
   --text: #f9fafb;
 }
-
 * { box-sizing: border-box; }
 
 body {
@@ -34,7 +31,28 @@ body {
   overflow: hidden;
 }
 
-/* 手機滑動慣性 */
+/* ✅ 掃描線光束背景 */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(255,255,255,0.12) 50%,
+    transparent 100%
+  );
+  animation: scan 6s linear infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes scan {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+/* ✅ 手機滑動慣性 */
 .chat {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
@@ -52,6 +70,8 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
+  z-index: 1;
 }
 
 .header {
@@ -112,16 +132,10 @@ body {
   animation: blink 1.4s infinite;
 }
 
-img.preview {
-  max-width: 140px;
-  border-radius: 12px;
-  margin-top: 6px;
-}
-
 .time {
   font-size: 11px;
   opacity: .6;
-  margin-top: 4px;
+  margin-top: 6px;
 }
 
 .footer {
@@ -175,8 +189,8 @@ input[type=file] { display:none; }
 }
 </style>
 </head>
-
 <body>
+
 <div class="app">
   <div class="header">
     ✨ AI 助理
@@ -241,50 +255,32 @@ sendBtn.onclick = async () => {
   inputEl.value = "";
 
   const thinking = render("assistant", "… 正在思考中", true);
-
   const start = performance.now();
 
   try {
-    let reply = "";
-
-    if (file) {
-      const form = new FormData();
-      form.append("image", file);
-      const res = await fetch(`${BASE_URL}/parse-schedule-image`, { method:"POST", body:form });
-      const data = await res.json();
-      reply = JSON.stringify(data, null, 2);
-    } else {
-      const res = await fetch(`${BASE_URL}/chat`, {
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ message:text })
-      });
-      const data = await res.json();
-      reply = data.reply;
-    }
-
+    const res = await fetch(`${BASE_URL}/chat`, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ message:text })
+    });
+    const data = await res.json();
     const cost = ((performance.now() - start)/1000).toFixed(2);
 
     thinking.remove();
-    typeWriter(reply, cost);
-
+    typeWriter(data.reply, cost);
   } catch {
     thinking.textContent = "❌ 連線失敗";
   }
-
-  fileInput.value = "";
 };
 
 /* ✅ UI Functions */
 function render(role, text, loading=false) {
   const div = document.createElement("div");
   div.className = `message ${role}`;
-
   const b = document.createElement("div");
   b.className = "bubble";
   if (loading) b.classList.add("thinking");
   b.textContent = text;
-
   div.appendChild(b);
   chatEl.appendChild(div);
   scroll();
