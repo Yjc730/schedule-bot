@@ -67,41 +67,20 @@ chat_memory: List[str] = []
 @app.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
     try:
-        chat_memory.append(f"使用者：{req.message}")
-        if len(chat_memory) > 10:
-            chat_memory.pop(0)
-
-        history_text = "\n".join(chat_memory)
-
         prompt = f"""
 你是一個溫暖、自然、會用繁體中文聊天的 AI 助手，
-可以記住前面的對話內容，像真人一樣聊天。
+說話方式像真人，不要太機器人。
 
-對話歷史：
-{history_text}
-
-現在使用者說：
+使用者說：
 {req.message}
 """
-
         response = client.models.generate_content(
             model="gemini-2.5-flash",
-            contents=prompt,
-            generation_config={
-                "temperature": 0.9,
-                "top_p": 0.95,
-                "max_output_tokens": 1024,
-            }
+            contents=prompt
         )
-
-        reply = response.text
-        chat_memory.append(f"AI：{reply}")
-
-        return ChatResponse(reply=reply)
-
+        return ChatResponse(reply=response.text)
     except Exception as e:
         return ChatResponse(reply=f"❌ Gemini 錯誤：{str(e)}")
-
 
 
 
@@ -162,6 +141,7 @@ async def parse_schedule_image(
                 source="image"
             )
         ])
+
 
 
 
