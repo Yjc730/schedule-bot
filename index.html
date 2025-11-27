@@ -119,17 +119,26 @@ function addMessage(role, text) {
   chatEl.scrollTop = chatEl.scrollHeight;
 }
 
+function formatEvents(events) {
+  if (!events || events.length === 0) return "我沒有解析到任何行程。";
+  return events.map((e, i) => {
+    const time = `${e.start_time || ""} - ${e.end_time || ""}`;
+    return `${i + 1}. ${e.date} ${time}｜${e.title}`;
+  }).join("\n");
+}
+
 async function send() {
   const text = inputEl.value.trim();
   const file = fileInput.files[0];
   if (!text && !file) return;
 
-  addMessage("user", text || "🖼 上傳了一張圖片");
+  addMessage("user", text || "🖼 我上傳了一張圖片");
   inputEl.value = "";
   sendBtn.disabled = true;
 
   try {
     if (file) {
+      // ✅ 圖片模式
       const form = new FormData();
       form.append("image", file);
 
@@ -137,21 +146,37 @@ async function send() {
         method: "POST",
         body: form,
       });
+
       const data = await res.json();
-      addMessage("assistant", JSON.stringify(data, null, 2));
+
+      if (data.events) {
+        addMessage("assistant", "我幫你從圖片整理出這些行程：\n" + formatEvents(data.events));
+      } else {
+        addMessage("assistant", "❌ 圖片解析失敗");
+      }
+
     } else {
+      // ✅ 聊天模式
       const res = await fetch(`${BASE_URL}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: text }),
       });
+
       const data = await res.json();
-      addMessage("assistant", data.reply);
+
+      if (data.reply) {
+        addMessage("assistant", data.reply);
+      } else {
+        addMessage("assistant", "❌ 後端沒有回傳 reply");
+      }
     }
-  } catch {
-    addMessage("assistant", "❌ 連線失敗");
+
+  } catch (err) {
+    addMessage("assistant", "❌ 連線失敗：" + err.message);
   } finally {
     sendBtn.disabled = false;
+    fileInput.value = "";
   }
 }
 
@@ -159,3 +184,4 @@ sendBtn.onclick = send;
 </script>
 </body>
 </html>
+
