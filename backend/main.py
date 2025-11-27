@@ -1,7 +1,7 @@
 import os
 import json
 import re
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
@@ -9,12 +9,12 @@ import google.genai as genai
 from google.genai import types
 
 # =========================
-# ✅ Gemini API Key（只從 Railway 讀）
+# ✅ 從 Railway 讀取 Gemini API Key
 # =========================
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 if not GEMINI_API_KEY:
-    raise RuntimeError("❌ 找不到 GEMINI_API_KEY，請到 Railway → Variables 設定")
+    raise ValueError("❌ GEMINI_API_KEY 未設定在 Railway Variables")
 
 # =========================
 # FastAPI
@@ -29,7 +29,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ✅ 初始化 Gemini Client
 client = genai.Client(api_key=GEMINI_API_KEY)
 
 # =========================
@@ -55,28 +54,25 @@ class ParseScheduleResponse(BaseModel):
     events: List[Event]
 
 # =========================
-# ✅ 健康檢查
+# ✅ Root（健康檢查）
 # =========================
 @app.get("/")
 async def root():
-    return {"status": "ok", "message": "Gemini 2.5 Flash API Running"}
+    return {"status": "ok", "message": "Gemini 2.5 Flash API Running ✅"}
 
 # =========================
 # ✅ 聊天（Gemini 2.5 Flash）
 # =========================
 @app.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
-    try:
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=req.message
-        )
-        return ChatResponse(reply=response.text)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=req.message
+    )
+    return ChatResponse(reply=response.text)
 
 # =========================
-# ✅ 圖片 → 行程解析（Gemini Vision）
+# ✅ 圖片解析（Gemini Vision）
 # =========================
 @app.post("/parse-schedule-image", response_model=ParseScheduleResponse)
 async def parse_schedule_image(image: UploadFile = File(...)):
@@ -105,7 +101,7 @@ async def parse_schedule_image(image: UploadFile = File(...)):
                     data=img_bytes,
                     mime_type=image.content_type or "image/jpeg",
                 ),
-                prompt
+                prompt,
             ],
         )
 
