@@ -5,286 +5,288 @@
 <title>AI 助理</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <style>
-:root {
-  --bg: #f4f4f5;
-  --glass: rgba(255,255,255,.82);
-  --bubble-user: #2563eb;
-  --bubble-ai: #ffffff;
-  --text: #111;
+:root{
+--bg:#f5f6fa;
+--glass:rgba(255,255,255,.75);
+--bubble-user:#2563eb;
+--bubble-ai:#ffffff;
+--text:#111;
+--scan:rgba(0,0,0,.08);
 }
-body.dark {
-  --bg: #020617;
-  --glass: rgba(20,20,20,.85);
-  --bubble-ai: #1f2933;
-  --text: #f9fafb;
+body.dark{
+--bg:#020617;
+--glass:rgba(30,30,30,.7);
+--bubble-ai:rgba(40,40,40,.9);
+--text:#f9fafb;
+--scan:rgba(255,255,255,.15);
 }
-* { box-sizing: border-box; }
-body {
-  margin: 0;
-  height: 100vh;
-  font-family: system-ui;
-  background: var(--bg);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  overflow: hidden;
-  transition: .3s;
-}
-
-/* ✅ 掃描線光束 */
-body::after {
-  content:"";
-  position:fixed;
-  inset:0;
-  background:linear-gradient(
-    to bottom,
-    transparent 0%,
-    rgba(255,255,255,.15) 50%,
-    transparent 100%
-  );
-  animation:scan 6s linear infinite;
-  pointer-events:none;
-}
-@keyframes scan {
-  0% {transform:translateY(-100%)}
-  100% {transform:translateY(100%)}
+*{box-sizing:border-box}
+body{
+margin:0;
+height:100vh;
+background:var(--bg);
+font-family:system-ui;
+display:flex;
+justify-content:center;
+align-items:center;
+overflow:hidden;
+color:var(--text);
 }
 
-/* ✅ 歷史抽屜 */
-.history {
-  position: fixed;
-  left: -260px;
-  top: 0;
-  width: 260px;
-  height: 100vh;
-  background: var(--glass);
-  backdrop-filter: blur(16px);
-  padding: 12px;
-  transition: .3s;
-  overflow-y: auto;
-  z-index: 10;
+/* ✅ 掃描線（亮+暗都可見） */
+body::after{
+content:"";
+position:fixed;
+inset:0;
+background:linear-gradient(to bottom,transparent 0%,var(--scan) 50%,transparent 100%);
+animation:scan 6s linear infinite;
+pointer-events:none;
+z-index:0;
 }
-.history.open { left: 0; }
-.history h3 { margin: 8px 0; }
-.history-item {
-  font-size: 13px;
-  padding: 6px;
-  border-bottom: 1px solid #ccc;
-  cursor:pointer;
+@keyframes scan{
+0%{transform:translateY(-100%)}
+100%{transform:translateY(100%)}
 }
 
-.app {
-  width: 100%;
-  max-width: 960px;
-  height: 94vh;
-  margin: 12px;
-  border-radius: 24px;
-  background: var(--glass);
-  backdrop-filter: blur(18px);
-  box-shadow: 0 20px 60px rgba(0,0,0,.3);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  position: relative;
-  z-index: 2;
+/* ✅ 側邊歷史欄 */
+.history{
+position:fixed;
+left:-260px;
+top:0;
+height:100%;
+width:260px;
+background:var(--glass);
+backdrop-filter:blur(14px);
+padding:16px;
+transition:.3s;
+z-index:50;
+overflow-y:auto;
 }
-.header {
-  padding: 14px;
-  color: var(--text);
-  font-weight: bold;
-  text-align: center;
-  border-bottom: 1px solid rgba(255,255,255,.3);
-  display: flex;
-  justify-content: space-between;
+.history.open{left:0}
+.history h3{margin:0 0 10px}
+.history div{
+font-size:13px;
+padding:6px;
+border-radius:6px;
+cursor:pointer;
 }
-.toggle { cursor:pointer; }
+.history div:hover{background:rgba(0,0,0,.05)}
 
-.chat {
-  flex: 1;
-  padding: 18px;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+.app{
+width:100%;
+max-width:960px;
+height:94vh;
+border-radius:24px;
+background:var(--glass);
+backdrop-filter:blur(18px);
+box-shadow:0 20px 60px rgba(0,0,0,.25);
+display:flex;
+flex-direction:column;
+overflow:hidden;
+position:relative;
+z-index:1;
 }
 
-.message { display:flex; margin-bottom:14px; animation:fadeIn .25s; }
-.user { justify-content:flex-end; }
-.assistant { justify-content:flex-start; }
-
-.bubble {
-  padding: 12px 16px;
-  border-radius: 18px;
-  max-width: 80%;
-  line-height: 1.6;
-  box-shadow: 0 6px 20px rgba(0,0,0,.15);
-  animation: breathe 3s infinite;
-  color: var(--text);
+.header{
+padding:14px;
+color:white;
+font-weight:bold;
+background:#2563eb;
+display:flex;
+justify-content:space-between;
+align-items:center;
 }
-.user .bubble { background:var(--bubble-user); color:#fff; border-bottom-right-radius:6px; }
-.assistant .bubble { background:var(--bubble-ai); border-bottom-left-radius:6px; }
 
-.thinking { opacity:.6; animation: blink 1.4s infinite; }
-.time { font-size:11px; opacity:.6; margin-top:6px; }
-
-.footer {
-  padding: 12px;
-  border-top: 1px solid rgba(255,255,255,.3);
+.chat{
+flex:1;
+padding:18px;
+overflow-y:auto;
+-webkit-overflow-scrolling:touch;
 }
-textarea { width:100%; resize:none; padding:10px; border-radius:12px; border:none; }
 
-.controls { display:flex; gap:8px; margin-top:6px; }
-button {
-  flex:1;
-  border:none;
-  border-radius:999px;
-  padding:10px;
-  background:#2563eb;
-  color:white;
+.message{
+display:flex;margin-bottom:12px;
+animation:fade .2s ease;
 }
-input[type=file]{display:none;}
+.user{justify-content:flex-end}
+.assistant{justify-content:flex-start}
 
-@keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1} }
-@keyframes blink {50%{opacity:1}}
-@keyframes breathe {
-  0%{box-shadow:0 4px 12px rgba(0,0,0,.2)}
-  50%{box-shadow:0 8px 24px rgba(0,0,0,.4)}
-  100%{box-shadow:0 4px 12px rgba(0,0,0,.2)}
+.bubble{
+padding:12px 16px;
+border-radius:18px;
+max-width:80%;
+background:var(--bubble-ai);
+box-shadow:0 6px 16px rgba(0,0,0,.15);
 }
+.user .bubble{
+background:var(--bubble-user);
+color:white;
+}
+.thinking{opacity:.6;animation:blink 1.4s infinite}
+
+.footer{
+padding:14px;
+border-top:1px solid rgba(0,0,0,.1);
+display:flex;
+flex-direction:column;
+gap:6px;
+}
+textarea{
+resize:none;
+padding:10px;
+border-radius:10px;
+border:none;
+font-size:14px;
+}
+.controls{display:flex;gap:6px}
+button{
+flex:1;
+border:none;
+border-radius:999px;
+padding:10px;
+background:#2563eb;
+color:white;
+cursor:pointer;
+}
+
+.toggle{cursor:pointer;font-size:20px}
+
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1}}
+@keyframes blink{0%{opacity:.3}50%{opacity:1}100%{opacity:.3}}
 </style>
 </head>
 <body>
 
+<!-- ✅ 歷史側欄 -->
 <div id="history" class="history">
-  <h3>📜 歷史紀錄</h3>
-  <div id="historyList"></div>
+<h3>歷史紀錄</h3>
+<button onclick="clearAll()">🗑 清除全部</button>
+<div id="historyList"></div>
 </div>
 
 <div class="app">
-  <div class="header">
-    <span id="openHistory">📜</span>
-    ✨ AI 助理
-    <span id="themeToggle">🌓</span>
-  </div>
+<div class="header">
+✨ AI 助理
+<div>
+<span onclick="toggleHistory()">☰</span>
+<span id="toggleTheme" class="toggle">🌓</span>
+</div>
+</div>
 
-  <div id="chat" class="chat"></div>
+<div id="chat" class="chat"></div>
 
-  <div class="footer">
-    <label>📎 圖片 <input type="file" id="image-input"></label>
-    <textarea id="input" placeholder="輸入文字或語音…"></textarea>
-    <div class="controls">
-      <button id="mic">🎤</button>
-      <button id="send">送出</button>
-    </div>
-  </div>
+<div class="footer">
+<textarea id="input" placeholder="輸入文字或語音…"></textarea>
+<div class="controls">
+<button id="mic">🎤</button>
+<button id="send">送出</button>
+</div>
+</div>
 </div>
 
 <script>
-const BASE_URL = "https://schedule-bot-production-32ae.up.railway.app";
-const chatEl = document.getElementById("chat");
-const inputEl = document.getElementById("input");
-const sendBtn = document.getElementById("send");
-const micBtn = document.getElementById("mic");
-const historyEl = document.getElementById("history");
-const historyList = document.getElementById("historyList");
+const BASE_URL="https://schedule-bot-production-32ae.up.railway.app";
+const chat=document.getElementById("chat");
+const input=document.getElementById("input");
+const send=document.getElementById("send");
+const mic=document.getElementById("mic");
+const toggleTheme=document.getElementById("toggleTheme");
+const historyBox=document.getElementById("history");
+const historyList=document.getElementById("historyList");
 
 /* ✅ 主題 */
-if (localStorage.theme === "dark") document.body.classList.add("dark");
-themeToggle.onclick = () => {
-  document.body.classList.toggle("dark");
-  localStorage.theme = document.body.classList.contains("dark") ? "dark" : "light";
+if(localStorage.theme==="dark")document.body.classList.add("dark");
+toggleTheme.onclick=()=>{
+document.body.classList.toggle("dark");
+localStorage.theme=document.body.classList.contains("dark")?"dark":"light";
 };
 
-/* ✅ 歷史抽屜 */
-openHistory.onclick = () => historyEl.classList.toggle("open");
-
-/* ✅ 語音輸入 */
-const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-if (SR) {
-  const recog = new SR();
-  recog.lang = "zh-TW";
-  micBtn.onclick = () => recog.start();
-  recog.onresult = e => inputEl.value = e.results[0][0].transcript;
+/* ✅ 歷史紀錄 */
+function toggleHistory(){historyBox.classList.toggle("open")}
+function clearAll(){
+localStorage.removeItem("chat_history");
+chat.innerHTML="";
+historyList.innerHTML="";
 }
 
-/* ✅ LocalStorage */
-let history = JSON.parse(localStorage.getItem("chat_history") || "[]");
-history.forEach(m => render(m.role,m.text));
-renderHistory();
+const history=JSON.parse(localStorage.getItem("chat_history")||"[]");
+history.forEach(renderHistory);
 
-sendBtn.onclick = async () => {
-  const text = inputEl.value.trim();
-  if (!text) return;
-  render("user", text);
-  save("user", text);
-  inputEl.value = "";
-
-  const thinking = render("assistant","… 正在思考中",true);
-  const start = performance.now();
-
-  try {
-    const res = await fetch(`${BASE_URL}/chat`,{
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({ message:text })
-    });
-    const data = await res.json();
-    const cost = ((performance.now()-start)/1000).toFixed(2);
-    thinking.remove();
-    typeWriter(data.reply,cost);
-  } catch {
-    thinking.textContent="❌ 連線失敗";
-  }
-};
-
-function render(role,text,loading=false){
-  const div=document.createElement("div");
-  div.className=`message ${role}`;
-  const b=document.createElement("div");
-  b.className="bubble";
-  if(loading) b.classList.add("thinking");
-  b.textContent=text;
-  div.appendChild(b);
-  chatEl.appendChild(div);
-  chatEl.scrollTop=chatEl.scrollHeight;
-  return b;
-}
-
-function typeWriter(text,time){
-  const bubble=render("assistant","");
-  let i=0;
-  const timer=setInterval(()=>{
-    bubble.textContent+=text[i++];
-    if(i>=text.length){
-      clearInterval(timer);
-      const t=document.createElement("div");
-      t.className="time";
-      t.textContent=`⏱ ${time}s`;
-      bubble.appendChild(t);
-      speak(text);
-      save("assistant",text);
-    }
-  },18);
+function renderHistory(item){
+const div=document.createElement("div");
+div.textContent=item.text;
+div.onclick=()=>render(item.role,item.text);
+historyList.appendChild(div);
 }
 
 function save(role,text){
-  history.push({role,text});
-  localStorage.setItem("chat_history",JSON.stringify(history));
-  renderHistory();
+const data=JSON.parse(localStorage.getItem("chat_history")||"[]");
+data.push({role,text});
+localStorage.setItem("chat_history",JSON.stringify(data));
+renderHistory({role,text});
 }
 
-function renderHistory(){
-  historyList.innerHTML="";
-  history.forEach(m=>{
-    const d=document.createElement("div");
-    d.className="history-item";
-    d.textContent=m.text;
-    historyList.appendChild(d);
-  });
+/* ✅ 語音 */
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+if(SR){
+const recog=new SR();
+recog.lang="zh-TW";
+mic.onclick=()=>recog.start();
+recog.onresult=e=>input.value=e.results[0][0].transcript;
+}
+
+/* ✅ 對話 */
+send.onclick=async()=>{
+const text=input.value.trim();
+if(!text)return;
+render("user",text);
+save("user",text);
+input.value="";
+const thinking=render("assistant","… 正在思考中",true);
+try{
+const res=await fetch(`${BASE_URL}/chat`,{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({message:text})
+});
+const data=await res.json();
+thinking.remove();
+typeWriter(data.reply);
+}catch{
+thinking.textContent="❌ 連線失敗";
+}
+};
+
+function render(role,text,loading=false){
+const div=document.createElement("div");
+div.className=`message ${role}`;
+const b=document.createElement("div");
+b.className="bubble";
+if(loading)b.classList.add("thinking");
+b.textContent=text;
+div.appendChild(b);
+chat.appendChild(div);
+chat.scrollTop=chat.scrollHeight;
+return b;
+}
+
+function typeWriter(text){
+const b=render("assistant","");
+let i=0;
+const timer=setInterval(()=>{
+b.textContent+=text[i++]||"";
+if(i>=text.length){
+clearInterval(timer);
+speak(text);
+save("assistant",text);
+}
+},18);
 }
 
 function speak(text){
-  const u=new SpeechSynthesisUtterance(text);
-  u.lang="zh-TW";
-  speechSynthesis.speak(u);
+const u=new SpeechSynthesisUtterance(text);
+u.lang="zh-TW";
+speechSynthesis.speak(u);
 }
 </script>
 </body>
