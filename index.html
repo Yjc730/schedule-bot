@@ -4,235 +4,233 @@
   <meta charset="UTF-8" />
   <title>AI 助理</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <!-- ⚠️ 樣式完全沿用你原本的（我沒有動） -->
-  <!-- ✅ 這裡省略，請保留你剛剛貼的 <style> 原樣即可 -->
+
+  <style>
+    :root {
+      --bg-dark: linear-gradient(135deg, #020617, #0f172a);
+      --bg-light: linear-gradient(135deg, #f8fafc, #e5e7eb);
+      --glass-dark: rgba(15,15,20,0.9);
+      --glass-light: rgba(255,255,255,0.9);
+      --bubble-user: linear-gradient(135deg, #3b82f6, #2563eb);
+      --bubble-ai-dark: rgba(31,41,55,0.95);
+      --bubble-ai-light: rgba(255,255,255,0.98);
+      --text-dark: #e5e7eb;
+      --text-light: #0f172a;
+    }
+
+    body {
+      margin: 0;
+      height: 100vh;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg-dark);
+      color: var(--text-dark);
+      overflow: hidden;
+    }
+
+    body.light {
+      background: var(--bg-light);
+      color: var(--text-light);
+    }
+
+    /* 掃描線 */
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background:
+        repeating-linear-gradient(
+          to bottom,
+          rgba(255,255,255,0.03),
+          rgba(255,255,255,0.03) 1px,
+          transparent 2px,
+          transparent 4px
+        );
+      animation: scan 6s linear infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    @keyframes scan {
+      from { background-position-y: -100%; }
+      to   { background-position-y: 100%; }
+    }
+
+    .wrapper {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      z-index: 1;
+    }
+
+    .sidebar {
+      width: 280px;
+      background: rgba(0,0,0,0.8);
+      position: absolute;
+      left: -280px;
+      top: 0;
+      bottom: 0;
+      transition: .3s;
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sidebar.show {
+      left: 0;
+    }
+
+    .sidebar-header {
+      padding: 12px;
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .sidebar-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+      font-size: 13px;
+    }
+
+    .sidebar-item {
+      padding: 6px;
+      margin-bottom: 4px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.1);
+    }
+
+    .app {
+      flex: 1;
+      margin: 16px;
+      border-radius: 24px;
+      background: var(--glass-dark);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .app.shift {
+      margin-left: 300px;
+    }
+
+    .header {
+      padding: 12px;
+      border-bottom: 1px solid gray;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .chat {
+      flex: 1;
+      padding: 12px;
+      overflow-y: auto;
+    }
+
+    .message {
+      display: flex;
+      margin-bottom: 10px;
+    }
+
+    .user { justify-content: flex-end; }
+    .assistant { justify-content: flex-start; }
+
+    .bubble {
+      max-width: 75%;
+      padding: 8px 12px;
+      border-radius: 12px;
+      background: #333;
+    }
+
+    .user .bubble {
+      background: #2563eb;
+      color: white;
+    }
+
+    .footer {
+      padding: 10px;
+      border-top: 1px solid gray;
+    }
+  </style>
 </head>
+
 <body>
+
 <div class="wrapper">
+
   <aside id="sidebar" class="sidebar">
     <div class="sidebar-header">
-      <span>📜 聊天記錄</span>
-      <span id="clearHistory" class="sidebar-clear">清除</span>
+      <span>📜 紀錄</span>
+      <span id="clearHistory">清除</span>
     </div>
     <div id="historyList" class="sidebar-body"></div>
   </aside>
 
   <main id="app" class="app">
+
     <header class="header">
-      <span>✨ AI 助理</span>
-      <div class="header-right">
-        <span id="historyBtn" class="toggle">📜</span>
-        <span id="themeBtn" class="toggle">🌓</span>
+      ✨ AI 助理
+      <div>
+        <span id="historyBtn">📜</span>
+        <span id="themeBtn">🌓</span>
       </div>
     </header>
 
     <section id="chat" class="chat"></section>
 
     <footer class="footer">
-      <div class="input-row">
-        <label class="file-label">
-          📎 <span>圖片</span>
-          <input type="file" id="imageInput" accept="image/*" />
-        </label>
-        <textarea id="input" rows="2" placeholder="輸入文字或用語音…"></textarea>
-      </div>
-      <div class="controls">
-        <button id="mic">🎤</button>
-        <button id="send">送出</button>
-      </div>
+      <input type="file" id="imageInput">
+      <textarea id="input"></textarea>
+      <button id="send">送出</button>
     </footer>
+
   </main>
 </div>
 
 <script>
 const BASE_URL = "https://schedule-bot-production-32ae.up.railway.app";
-const chatEl = document.getElementById("chat");
-const inputEl = document.getElementById("input");
+
 const sendBtn = document.getElementById("send");
-const micBtn = document.getElementById("mic");
-const imageInput = document.getElementById("imageInput");
-const themeBtn = document.getElementById("themeBtn");
+const inputEl = document.getElementById("input");
+const chatEl = document.getElementById("chat");
 const historyBtn = document.getElementById("historyBtn");
 const sidebar = document.getElementById("sidebar");
 const appEl = document.getElementById("app");
-const historyList = document.getElementById("historyList");
-const clearHistoryBtn = document.getElementById("clearHistory");
 
-/* ===== 主題 ===== */
-if (localStorage.getItem("theme") === "light") {
-  document.body.classList.add("light");
-}
-themeBtn.onclick = () => {
-  document.body.classList.toggle("light");
-  localStorage.setItem(
-    "theme",
-    document.body.classList.contains("light") ? "light" : "dark"
-  );
-};
-
-/* ===== 側欄 ===== */
 historyBtn.onclick = () => {
   sidebar.classList.toggle("show");
   appEl.classList.toggle("shift");
 };
-clearHistoryBtn.onclick = () => {
-  if (!confirm("確定清除？")) return;
-  localStorage.removeItem("chat_history");
-  historyList.innerHTML = "";
-};
 
-/* ===== 載入歷史 ===== */
-const historyData = JSON.parse(localStorage.getItem("chat_history") || "[]");
-historyData.forEach(m => {
-  renderMessage(m.role, m.text);
-  addHistoryLine(m);
-});
-
-/* ===== 語音輸入 ===== */
-const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-const recog = SR ? new SR() : null;
-if (recog) {
-  recog.lang = "zh-TW";
-  micBtn.onclick = () => recog.start();
-  recog.onresult = e => inputEl.value = e.results[0][0].transcript;
-}
-
-/* ======================= ✅ 核心：圖片 + 文字「同時送」 ======================= */
 sendBtn.onclick = async () => {
   const text = inputEl.value.trim();
-  const file = imageInput.files[0];
-  if (!text && !file) return;
+  if (!text) return;
 
-  // ✅ 使用者氣泡
-  const previewUrl = file ? URL.createObjectURL(file) : null;
-  renderMessage("user", text || "🖼 上傳了一張圖片", { imageUrl: previewUrl });
-  saveHistory({ role: "user", text: text || "[圖片]" });
-
+  addMessage("user", text);
   inputEl.value = "";
-  imageInput.value = "";
 
-  const thinkingBubble = renderMessage("assistant", "… 正在思考中", { thinking: true });
-  const startTime = performance.now();
+  const res = await fetch(`${BASE_URL}/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message: text })
+  });
 
-  try {
-    let replyText = "";
-
-    if (file) {
-      // ✅ 圖片 + 文字一起傳
-      const form = new FormData();
-      form.append("image", file);
-      form.append("question", text);   // ⭐ 關鍵：一起送問題
-
-      const res = await fetch(`${BASE_URL}/parse-schedule-image`, {
-        method: "POST",
-        body: form
-      });
-
-      const data = await res.json();
-
-      // ✅ 只抽你真正要看的文字
-      if (data.answer) {
-        replyText = data.answer;
-      } else if (data.events) {
-        replyText = data.events
-          .map(e => `📅 ${e.date} ${e.title}`)
-          .join("\n");
-      } else {
-        replyText = "⚠️ 圖片已解析，但沒有可用結果";
-      }
-
-    } else {
-      // ✅ 純聊天
-      const res = await fetch(`${BASE_URL}/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text })
-      });
-      const data = await res.json();
-      replyText = data.reply;
-    }
-
-    const cost = ((performance.now() - startTime) / 1000).toFixed(2);
-
-    // ✅ 正確刪除 thinking
-    thinkingBubble.closest(".message").remove();
-
-    typeWriter(replyText, cost);
-
-  } catch (err) {
-    console.error(err);
-    thinkingBubble.textContent = "❌ 連線失敗";
-  }
+  const data = await res.json();
+  addMessage("assistant", data.reply);
 };
 
-/* ===== Render ===== */
-function renderMessage(role, text, options = {}) {
-  const { thinking = false, imageUrl = null } = options;
-
-  const item = document.createElement("div");
-  item.className = `message ${role}`;
-
+function addMessage(role, text) {
+  const div = document.createElement("div");
+  div.className = `message ${role}`;
   const bubble = document.createElement("div");
   bubble.className = "bubble";
-  if (thinking) bubble.classList.add("thinking");
   bubble.textContent = text;
-
-  if (imageUrl) {
-    const img = document.createElement("img");
-    img.src = imageUrl;
-    img.className = "thumb";
-    bubble.appendChild(img);
-  }
-
-  item.appendChild(bubble);
-  chatEl.appendChild(item);
+  div.appendChild(bubble);
+  chatEl.appendChild(div);
   chatEl.scrollTop = chatEl.scrollHeight;
-  return bubble;
-}
-
-function typeWriter(text, seconds) {
-  let i = 0;
-  const bubble = renderMessage("assistant", "");
-
-  const meta = document.createElement("div");
-  meta.className = "meta";
-  meta.textContent = `⏱ ${seconds}s`;
-
-  const timer = setInterval(() => {
-    bubble.textContent += text[i++] || "";
-    chatEl.scrollTop = chatEl.scrollHeight;
-
-    if (i >= text.length) {
-      clearInterval(timer);
-      bubble.appendChild(meta);
-      speak(text);
-      saveHistory({ role: "assistant", text });
-    }
-  }, 18);
-}
-
-/* ===== 歷史 ===== */
-function addHistoryLine({ role, text }) {
-  const div = document.createElement("div");
-  div.className = "sidebar-item";
-  div.textContent = `${role === "user" ? "🧑" : "🤖"} ${text}`;
-  historyList.appendChild(div);
-}
-
-function saveHistory(entry) {
-  const data = JSON.parse(localStorage.getItem("chat_history") || "[]");
-  data.push(entry);
-  localStorage.setItem("chat_history", JSON.stringify(data));
-  addHistoryLine(entry);
-}
-
-/* ===== 語音朗讀 ===== */
-function speak(text) {
-  if (!window.speechSynthesis) return;
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = "zh-TW";
-  speechSynthesis.speak(u);
 }
 </script>
+
 </body>
 </html>
