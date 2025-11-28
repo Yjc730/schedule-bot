@@ -49,30 +49,51 @@ class ParseScheduleResponse(BaseModel):
     events: List[Event]
 
 # =========================
-# ✅ 聊天上下文（簡單助理用）
+# ✅ 記憶區（聊天 + 行事曆）
 # =========================
 chat_memory: List[dict] = []
+schedule_memory: List[Event] = []
 
 # =========================
-# ✅ Root
+# Root
 # =========================
 @app.get("/")
 async def root():
-    return {"status": "ok", "message": "Gemini API Running"}
+    return {"status": "ok"}
 
 # =========================
-# ✅ 一般聊天（像助理一樣 Q&A）
+# ✅ 智能聊天（會自動判斷是否在問行事曆）
 # =========================
 @app.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
     try:
-        system_prompt = """
-你是一個溫暖、自然、會用繁體中文聊天的 AI 助手，
-回答要「簡單、實用、像真人說話」，不要過度說明。
-"""
+        user_msg = req.message.strip()
 
-        chat_memory.append({"role": "user", "content": req.message})
-        messages = [{"role": "system", "content": system_prompt}] + chat_memory[-10:]
+        # ✅ 1️⃣ 如果使用者在問「某一天的行程」
+        date_match = re.search(r"(\d{1,2})[ 日号]", user_msg)
+        if date_match and schedule_memory:
+            day = date_match.group(1).zfill(2)
+            filtered = [
+                e for e in schedule_memory if e.date.endswith(f"-{day}")
+            ]
+
+            if not filtered:
+                return ChatResponse(reply=f"📭 {int(day)} 日目前沒有行程")
+
+            result = f"📅 {int(day)} 日行程：\n"
+            for e in filtered:
+                result += f"• {e.start_time} {e.title}\n"
+
+            return ChatResponse(reply=result.strip())
+
+        # ✅ 2️⃣ 否則就是正常助理聊天
+        chat_memory.append({"role": "user", "content": user_msg})
+        system_prompt = {
+            "role": "system",
+            "content": "你是一個溫暖自然的繁體中文助理，回答要簡潔，不要長篇說明。"
+        }
+
+        messages = [system_prompt] + chat_memory[-10:]
 
         response = client.models.generate_content(
             model="gemini-2.5-flash",
@@ -81,13 +102,14 @@ async def chat(req: ChatRequest):
 
         reply = response.text.strip()
         chat_memory.append({"role": "assistant", "content": reply})
+
         return ChatResponse(reply=reply)
 
     except Exception as e:
-        return ChatResponse(reply=f"❌ 聊天錯誤：{str(e)}")
+        return ChatResponse(reply=f"❌ Gemini 錯誤：{str(e)}")
 
 # =========================
-# ✅ 行事曆圖片解析（「只回簡短重點版」）
+# ✅ 圖片解析 → 真正轉成「乾淨的行事曆資料」
 # =========================
 @app.post("/parse-schedule-image", response_model=ParseScheduleResponse)
 async def parse_schedule_image(image: UploadFile = File(...)):
@@ -95,27 +117,19 @@ async def parse_schedule_image(image: UploadFile = File(...)):
         img_bytes = await image.read()
 
         prompt = """
-請從行事曆圖片中：
-1️⃣ 只擷取「有事件的日期」
-2️⃣ 只輸出「日期 + 開始時間 + 狀態」
-3️⃣ 狀態只用：忙碌 / 暫定 / 空白
-4️⃣ 嚴格輸出 JSON 格式：
+請從圖片中辨識所有「行事曆行程」，
+並嚴格只輸出以下格式的 JSON 陣列（不要說明）：
 
 [
   {
-    "title": "行程",
+    "title": "暫定 / 忙碌",
     "date": "YYYY-MM-DD",
     "start_time": "HH:MM",
     "end_time": "",
     "location": "",
-    "notes": "忙碌 或 暫定",
-    "raw_text": null,
-    "source": "image"
+    "notes": ""
   }
 ]
-
-❌ 不要輸出任何說明文字
-❌ 不要描述畫面
 """
 
         response = client.models.generate_content(
@@ -129,25 +143,28 @@ async def parse_schedule_image(image: UploadFile = File(...)):
             ],
         )
 
-        raw_text = response.text.strip()
-        match = re.search(r"\[.*\]", raw_text, re.S)
-
+        raw = response.text
+        match = re.search(r"\[.*\]", raw, re.S)
         if not match:
             raise ValueError("AI 未回傳正確 JSON")
 
-        events = json.loads(match.group(0))
+        events_data = json.loads(match.group(0))
+        events = [Event(**e) for e in events_data]
+
+        # ✅ 存入全域記憶，供之後「幾號有什麼行程」使用
+        schedule_memory.clear()
+        schedule_memory.extend(events)
+
         return ParseScheduleResponse(events=events)
 
     except Exception as e:
         return ParseScheduleResponse(events=[
             Event(
-                title="圖片解析失敗",
+                title="解析失敗",
                 date="",
                 start_time="",
                 end_time="",
-                location="",
                 notes=str(e),
-                raw_text=None,
                 source="image"
             )
         ])
