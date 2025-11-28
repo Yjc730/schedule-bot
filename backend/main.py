@@ -9,7 +9,7 @@ import google.genai as genai
 from google.genai import types
 
 # =========================
-# Gemini
+# Gemini API
 # =========================
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=GEMINI_API_KEY)
@@ -32,6 +32,20 @@ app.add_middleware(
 class ChatResponse(BaseModel):
     reply: str
 
+class Event(BaseModel):
+    title: str
+    date: str
+    start_time: str
+    end_time: str
+    status: Optional[str] = ""
+    location: Optional[str] = ""
+    notes: Optional[str] = ""
+    raw_text: Optional[str] = None
+    source: Optional[str] = "image"
+
+class ParseScheduleResponse(BaseModel):
+    events: List[Event]
+
 # =========================
 # 健康檢查
 # =========================
@@ -39,62 +53,73 @@ class ChatResponse(BaseModel):
 async def root():
     return {"status": "ok"}
 
-# =========================
-# ✅【唯一入口】文字 + 圖片 合併處理
-# =========================
-@app.post("/chat", response_model=ChatResponse)
-async def chat(
+# ✅✅✅ ✅✅✅ ✅✅✅
+# ✅【1】圖片 + 文字 同時送的 API
+# ✅✅✅ ✅✅✅ ✅✅✅
+@app.post("/chat-with-image", response_model=ChatResponse)
+async def chat_with_image(
     message: str = Form(...),
     image: UploadFile = File(None)
 ):
     try:
-        img_part = None
+        contents = []
 
-        # ✅ 如果有圖片 → 加入 vision
+        # ✅ 有圖片就一起送
         if image:
             img_bytes = await image.read()
-            img_part = types.Part.from_bytes(
-                data=img_bytes,
-                mime_type=image.content_type or "image/jpeg"
+            contents.append(
+                types.Part.from_bytes(
+                    data=img_bytes,
+                    mime_type=image.content_type or "image/jpeg",
+                )
             )
 
-        # ✅ 嚴格限制回覆格式（避免他亂講整個月）
+        # ✅ 強制輸出只回答使用者問題
         prompt = f"""
-你是「行事曆 AI 助理」。
-規則極度嚴格：
+你是一個「行事曆 + 一般聊天」助理。
 
-1️⃣ 若使用者有指定「某一天」：
-只回該日的行程
-格式必須為：
+【嚴格規則】
+1️⃣ 只能回答「使用者問的那一天或那一個事件」
+2️⃣ 禁止列出整個月
+3️⃣ 禁止補充其他節日
+4️⃣ 若圖片中沒有該問題的答案，只回：
+   「圖片中沒有找到該資訊」
 
-📅 31 日行程：
-• 09:30 暫定
-• 10:00 忙碌
-
-2️⃣ 若圖片中只有節日：
-只回答節日結果，例如：
-「除夕是 2023-01-21。」
-
-3️⃣ 禁止列出整個月份
-4️⃣ 禁止輸出 JSON
-5️⃣ 禁止解釋過程
-6️⃣ 只能用繁體中文
+【輸出格式】
+📅 XX 日行程：
+• HH:MM 狀態
+• HH:MM 狀態
 
 使用者問題：
 {message}
 """
-
-        contents = [prompt]
-        if img_part:
-            contents = [img_part, prompt]
-
         response = client.models.generate_content(
             model="gemini-2.5-flash",
-            contents=contents
+            contents=contents + [prompt],
         )
 
-        reply = response.text.strip()
-        return ChatResponse(reply=reply)
+        return ChatResponse(reply=response.text.strip())
 
     except Exception as e:
-        return ChatResponse(reply=f"❌ 系統錯誤：{str(e)}")
+        return ChatResponse(reply=f"❌ 解析失敗：{str(e)}")
+
+# ✅✅✅ ✅✅✅ ✅✅✅
+# ✅【2】純聊天室（沒有圖片）
+# ✅✅✅ ✅✅✅ ✅✅✅
+@app.post("/chat", response_model=ChatResponse)
+async def chat(message: str = Form(...)):
+    try:
+        prompt = f"""
+你是一般聊天 AI 助理，若不是行事曆問題就正常對話。
+
+使用者說：
+{message}
+"""
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[prompt]
+        )
+        return ChatResponse(reply=response.text.strip())
+
+    except Exception as e:
+        return ChatResponse(reply=f"❌ 錯誤：{str(e)}")
