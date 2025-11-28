@@ -4,111 +4,312 @@
 <meta charset="UTF-8" />
 <title>AI 助理</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+
 <style>
-body {
-  margin: 0;
-  background: #0f172a;
-  color: white;
-  font-family: system-ui;
+:root {
+  --bg-dark: linear-gradient(135deg, #020617, #0f172a);
+  --bg-light: linear-gradient(135deg, #f8fafc, #e5e7eb);
+  --panel-dark: rgba(15,15,20,0.92);
+  --panel-light: rgba(255,255,255,0.95);
+  --user: linear-gradient(135deg, #3b82f6, #2563eb);
+  --ai-dark: rgba(31,41,55,.95);
+  --ai-light: #ffffff;
+  --text-dark: #e5e7eb;
+  --text-light: #0f172a;
 }
-#chat {
-  height: 85vh;
-  overflow-y: auto;
-  padding: 14px;
+
+body {
+  margin:0;
+  height:100vh;
+  background:var(--bg-dark);
+  color:var(--text-dark);
+  font-family:system-ui;
+  overflow:hidden;
+}
+body.light {
+  background:var(--bg-light);
+  color:var(--text-light);
+}
+
+/* ==== 版面 ==== */
+.wrapper {
+  display:flex;
+  height:100%;
+}
+
+/* ==== 側邊欄 ==== */
+.sidebar {
+  width:260px;
+  background:rgba(0,0,0,.7);
+  backdrop-filter:blur(20px);
+  position:absolute;
+  left:-260px;
+  top:0; bottom:0;
+  transition:.3s;
+  z-index:20;
+  display:flex;
+  flex-direction:column;
+}
+body.light .sidebar{background:#fff;}
+.sidebar.show { left:0; }
+
+.sidebar-header {
+  padding:14px;
+  border-bottom:1px solid rgba(255,255,255,.2);
+  display:flex;
+  justify-content:space-between;
+  font-weight:bold;
+}
+.sidebar-body {
+  flex:1;
+  overflow-y:auto;
+  padding:12px;
+  font-size:13px;
+}
+.sidebar-item {
+  margin-bottom:6px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.sidebar-clear {
+  cursor:pointer;
+  font-size:12px;
+}
+
+/* ==== 聊天室 ==== */
+.app {
+  flex:1;
+  margin:16px;
+  border-radius:22px;
+  background:var(--panel-dark);
+  display:flex;
+  flex-direction:column;
+  transition:.3s;
+}
+.app.shift {
+  margin-left:300px;
+}
+body.light .app {
+  background:var(--panel-light);
+}
+
+/* header */
+.header {
+  padding:14px;
+  border-bottom:1px solid rgba(255,255,255,.2);
+  display:flex;
+  justify-content:space-between;
+}
+
+/* chat */
+.chat {
+  flex:1;
+  padding:18px;
+  overflow-y:auto;
 }
 .msg {
-  margin-bottom: 10px;
-  display: flex;
+  display:flex;
+  margin-bottom:10px;
 }
-.user { justify-content: flex-end; }
-.ai { justify-content: flex-start; }
+.user { justify-content:flex-end; }
+.ai { justify-content:flex-start; }
 .bubble {
-  max-width: 75%;
-  padding: 10px 14px;
-  border-radius: 18px;
+  max-width:75%;
+  padding:10px 14px;
+  border-radius:18px;
 }
 .user .bubble {
-  background: #2563eb;
+  background:var(--user);
+  color:white;
 }
 .ai .bubble {
-  background: #1f2933;
+  background:var(--ai-dark);
 }
+body.light .ai .bubble {
+  background:var(--ai-light);
+  color:black;
+}
+
+/* footer */
 .footer {
-  display: flex;
-  gap: 6px;
-  padding: 10px;
+  padding:12px;
+  border-top:1px solid rgba(255,255,255,.2);
+}
+.controls {
+  display:flex;
+  gap:8px;
+  margin-top:6px;
 }
 textarea {
-  flex: 1;
-  border-radius: 12px;
+  width:100%;
+  padding:10px;
+  border-radius:10px;
+  border:none;
 }
 button {
-  border-radius: 999px;
+  flex:1;
+  padding:10px;
+  border:none;
+  border-radius:999px;
+  background:#2563eb;
+  color:white;
+  cursor:pointer;
 }
-img {
-  max-width: 150px;
-  border-radius: 10px;
-}
+input[type=file] { display:none; }
 </style>
 </head>
+
 <body>
 
-<div id="chat"></div>
+<div class="wrapper">
 
-<div class="footer">
-  <input type="file" id="img" />
-  <textarea id="text"></textarea>
-  <button onclick="send()">送出</button>
+  <!-- 📜 側邊紀錄 -->
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-header">
+      聊天紀錄
+      <span id="clearHistory" class="sidebar-clear">清除</span>
+    </div>
+    <div id="historyList" class="sidebar-body"></div>
+  </aside>
+
+  <!-- 💬 主聊天室 -->
+  <main id="app" class="app">
+    <div class="header">
+      ✨ AI 助理
+      <div>
+        <span id="historyBtn">📜</span>
+        <span id="themeBtn">🌓</span>
+      </div>
+    </div>
+
+    <div id="chat" class="chat"></div>
+
+    <div class="footer">
+      <label>📎 圖片
+        <input type="file" id="imageInput" />
+      </label>
+      <textarea id="input" placeholder="輸入訊息..."></textarea>
+      <div class="controls">
+        <button id="send">送出</button>
+      </div>
+    </div>
+  </main>
+
 </div>
 
 <script>
 const BASE_URL = "https://schedule-bot-production-32ae.up.railway.app";
 
 const chat = document.getElementById("chat");
-const textEl = document.getElementById("text");
-const imgEl = document.getElementById("img");
+const input = document.getElementById("input");
+const sendBtn = document.getElementById("send");
+const imageInput = document.getElementById("imageInput");
 
-function add(role, msg, img=null){
-  const div = document.createElement("div");
-  div.className = "msg " + role;
-  const b = document.createElement("div");
-  b.className = "bubble";
-  b.textContent = msg;
-  if(img){
-    const i = document.createElement("img");
-    i.src = img;
-    b.appendChild(i);
-  }
-  div.appendChild(b);
-  chat.appendChild(div);
-  chat.scrollTop = chat.scrollHeight;
+const sidebar = document.getElementById("sidebar");
+const historyBtn = document.getElementById("historyBtn");
+const clearHistoryBtn = document.getElementById("clearHistory");
+const historyList = document.getElementById("historyList");
+
+const themeBtn = document.getElementById("themeBtn");
+const app = document.getElementById("app");
+
+/* === 主題切換 === */
+if(localStorage.getItem("theme")==="light"){
+  document.body.classList.add("light");
+}
+themeBtn.onclick=()=>{
+  document.body.classList.toggle("light");
+  localStorage.setItem("theme",
+    document.body.classList.contains("light")?"light":"dark"
+  );
 }
 
-async function send(){
-  const text = textEl.value.trim();
-  const file = imgEl.files[0];
+/* === 側欄開關 === */
+historyBtn.onclick=()=>{
+  sidebar.classList.toggle("show");
+  app.classList.toggle("shift");
+}
+
+/* === 清除紀錄 === */
+clearHistoryBtn.onclick=()=>{
+  if(!confirm("確定清除所有紀錄？")) return;
+  localStorage.removeItem("chat_history");
+  chat.innerHTML="";
+  historyList.innerHTML="";
+}
+
+/* === 載入歷史 === */
+const historyData=JSON.parse(localStorage.getItem("chat_history")||"[]");
+historyData.forEach(m=>{
+  render(m.role,m.text);
+  addHistory(m);
+});
+
+/* === 送出 === */
+sendBtn.onclick=async()=>{
+  const text=input.value.trim();
+  const file=imageInput.files[0];
   if(!text && !file) return;
 
-  const preview = file ? URL.createObjectURL(file) : null;
-  add("user", text || "（已上傳圖片）", preview);
-  textEl.value = "";
-  imgEl.value = "";
+  render("user",text||"上傳圖片");
+  save("user",text||"[圖片]");
+  input.value=""; imageInput.value="";
 
-  add("ai", "…分析中");
+  const loading=render("ai","思考中...");
 
-  const form = new FormData();
-  form.append("message", text);
-  if(file) form.append("image", file);
+  try{
+    let reply="";
+    if(file){
+      const form=new FormData();
+      form.append("image",file);
+      const res=await fetch(`${BASE_URL}/parse-schedule-image`,{
+        method:"POST",body:form
+      });
+      const data=await res.json();
+      reply=JSON.stringify(data,null,2);
+    }else{
+      const res=await fetch(`${BASE_URL}/chat`,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({message:text})
+      });
+      const data=await res.json();
+      reply=data.reply;
+    }
+    loading.remove();
+    render("ai",reply);
+    save("ai",reply);
+  }catch{
+    loading.textContent="❌ 連線失敗";
+  }
+};
 
-  const res = await fetch(`${BASE_URL}/chat`, {
-    method:"POST",
-    body: form
-  });
+/* === UI functions === */
+function render(role,text){
+  const msg=document.createElement("div");
+  msg.className=`msg ${role}`;
+  const b=document.createElement("div");
+  b.className="bubble";
+  b.textContent=text;
+  msg.appendChild(b);
+  chat.appendChild(msg);
+  chat.scrollTop=chat.scrollHeight;
+  return b;
+}
 
-  const data = await res.json();
+function save(role,text){
+  const data=JSON.parse(localStorage.getItem("chat_history")||"[]");
+  data.push({role,text});
+  localStorage.setItem("chat_history",JSON.stringify(data));
+  addHistory({role,text});
+}
 
-  chat.lastChild.remove();
-  add("ai", data.reply);
+function addHistory({role,text}){
+  const div=document.createElement("div");
+  div.className="sidebar-item";
+  div.textContent=(role==="user"?"🧑":"🤖")+" "+text;
+  historyList.appendChild(div);
 }
 </script>
 
