@@ -1,317 +1,99 @@
-<!DOCTYPE html>
-<html lang="zh-Hant">
-<head>
-<meta charset="UTF-8" />
-<title>AI 助理</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+import os
+import json
+import google.genai as genai
+from google.genai import types
+from fastapi import FastAPI, UploadFile, File, Form
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import Optional
 
-<style>
-:root {
-  --bg-dark: linear-gradient(135deg, #020617, #0f172a);
-  --bg-light: linear-gradient(135deg, #f8fafc, #e5e7eb);
-  --panel-dark: rgba(15,15,20,0.92);
-  --panel-light: rgba(255,255,255,0.95);
-  --user: linear-gradient(135deg, #3b82f6, #2563eb);
-  --ai-dark: rgba(31,41,55,.95);
-  --ai-light: #ffffff;
-  --text-dark: #e5e7eb;
-  --text-light: #0f172a;
-}
+# =====================
+# Gemini
+# =====================
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+client = genai.Client(api_key=GEMINI_API_KEY)
 
-body {
-  margin:0;
-  height:100vh;
-  background:var(--bg-dark);
-  color:var(--text-dark);
-  font-family:system-ui;
-  overflow:hidden;
-}
-body.light {
-  background:var(--bg-light);
-  color:var(--text-light);
-}
+# =====================
+# FastAPI
+# =====================
+app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-/* ==== 版面 ==== */
-.wrapper {
-  display:flex;
-  height:100%;
-}
+# =====================
+# Models
+# =====================
+class ChatResponse(BaseModel):
+    reply: str
 
-/* ==== 側邊欄 ==== */
-.sidebar {
-  width:260px;
-  background:rgba(0,0,0,.7);
-  backdrop-filter:blur(20px);
-  position:absolute;
-  left:-260px;
-  top:0; bottom:0;
-  transition:.3s;
-  z-index:20;
-  display:flex;
-  flex-direction:column;
-}
-body.light .sidebar{background:#fff;}
-.sidebar.show { left:0; }
+# =====================
+# Health Check
+# =====================
+@app.get("/")
+async def root():
+    return {"status": "ok"}
 
-.sidebar-header {
-  padding:14px;
-  border-bottom:1px solid rgba(255,255,255,.2);
-  display:flex;
-  justify-content:space-between;
-  font-weight:bold;
-}
-.sidebar-body {
-  flex:1;
-  overflow-y:auto;
-  padding:12px;
-  font-size:13px;
-}
-.sidebar-item {
-  margin-bottom:6px;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-.sidebar-clear {
-  cursor:pointer;
-  font-size:12px;
-}
+# =====================
+# ✅【統一聊天 + 圖片解析 API】
+# =====================
+@app.post("/chat", response_model=ChatResponse)
+async def chat(
+    message: Optional[str] = Form(""),
+    image: Optional[UploadFile] = File(None)
+):
+    try:
+        parts = []
 
-/* ==== 聊天室 ==== */
-.app {
-  flex:1;
-  margin:16px;
-  border-radius:22px;
-  background:var(--panel-dark);
-  display:flex;
-  flex-direction:column;
-  transition:.3s;
-}
-.app.shift {
-  margin-left:300px;
-}
-body.light .app {
-  background:var(--panel-light);
-}
+        # ✅ 圖片存在 → 送入 Gemini Vision
+        if image:
+            img_bytes = await image.read()
+            parts.append(
+                types.Part.from_bytes(
+                    data=img_bytes,
+                    mime_type=image.content_type or "image/jpeg"
+                )
+            )
 
-/* header */
-.header {
-  padding:14px;
-  border-bottom:1px solid rgba(255,255,255,.2);
-  display:flex;
-  justify-content:space-between;
-}
+        # ✅ 強制限制模型只回答「使用者詢問的那一天」
+        system_prompt = """
+你是一個「行事曆 + 一般聊天」AI 助理。
 
-/* chat */
-.chat {
-  flex:1;
-  padding:18px;
-  overflow-y:auto;
-}
-.msg {
-  display:flex;
-  margin-bottom:10px;
-}
-.user { justify-content:flex-end; }
-.ai { justify-content:flex-start; }
-.bubble {
-  max-width:75%;
-  padding:10px 14px;
-  border-radius:18px;
-}
-.user .bubble {
-  background:var(--user);
-  color:white;
-}
-.ai .bubble {
-  background:var(--ai-dark);
-}
-body.light .ai .bubble {
-  background:var(--ai-light);
-  color:black;
-}
+規則：
+1️⃣ 如果使用者問「某一天的行程」：
+→ 你只能輸出該"指定日期"
+→ 嚴禁輸出其他日期
+→ 嚴禁輸出整個月份
+→ 格式必須是：
 
-/* footer */
-.footer {
-  padding:12px;
-  border-top:1px solid rgba(255,255,255,.2);
-}
-.controls {
-  display:flex;
-  gap:8px;
-  margin-top:6px;
-}
-textarea {
-  width:100%;
-  padding:10px;
-  border-radius:10px;
-  border:none;
-}
-button {
-  flex:1;
-  padding:10px;
-  border:none;
-  border-radius:999px;
-  background:#2563eb;
-  color:white;
-  cursor:pointer;
-}
-input[type=file] { display:none; }
-</style>
-</head>
+📅 31 日行程：
+• 09:30 暫定
+• 10:00 忙碌
 
-<body>
+2️⃣ 如果使用者只是一般聊天 → 正常回答。
 
-<div class="wrapper">
+3️⃣ 如果有圖片：
+→ 你必須先從圖片讀取行事曆內容再回答問題
+→ 只回問題相關的日期
+→ 不要輸出 JSON
+→ 不要輸出其他節日
 
-  <!-- 📜 側邊紀錄 -->
-  <aside id="sidebar" class="sidebar">
-    <div class="sidebar-header">
-      聊天紀錄
-      <span id="clearHistory" class="sidebar-clear">清除</span>
-    </div>
-    <div id="historyList" class="sidebar-body"></div>
-  </aside>
+使用者問題：
+"""
+        parts.append(system_prompt + message)
 
-  <!-- 💬 主聊天室 -->
-  <main id="app" class="app">
-    <div class="header">
-      ✨ AI 助理
-      <div>
-        <span id="historyBtn">📜</span>
-        <span id="themeBtn">🌓</span>
-      </div>
-    </div>
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=parts
+        )
 
-    <div id="chat" class="chat"></div>
+        return ChatResponse(
+            reply=response.text.strip()
+        )
 
-    <div class="footer">
-      <label>📎 圖片
-        <input type="file" id="imageInput" />
-      </label>
-      <textarea id="input" placeholder="輸入訊息..."></textarea>
-      <div class="controls">
-        <button id="send">送出</button>
-      </div>
-    </div>
-  </main>
-
-</div>
-
-<script>
-const BASE_URL = "https://schedule-bot-production-32ae.up.railway.app";
-
-const chat = document.getElementById("chat");
-const input = document.getElementById("input");
-const sendBtn = document.getElementById("send");
-const imageInput = document.getElementById("imageInput");
-
-const sidebar = document.getElementById("sidebar");
-const historyBtn = document.getElementById("historyBtn");
-const clearHistoryBtn = document.getElementById("clearHistory");
-const historyList = document.getElementById("historyList");
-
-const themeBtn = document.getElementById("themeBtn");
-const app = document.getElementById("app");
-
-/* === 主題切換 === */
-if(localStorage.getItem("theme")==="light"){
-  document.body.classList.add("light");
-}
-themeBtn.onclick=()=>{
-  document.body.classList.toggle("light");
-  localStorage.setItem("theme",
-    document.body.classList.contains("light")?"light":"dark"
-  );
-}
-
-/* === 側欄開關 === */
-historyBtn.onclick=()=>{
-  sidebar.classList.toggle("show");
-  app.classList.toggle("shift");
-}
-
-/* === 清除紀錄 === */
-clearHistoryBtn.onclick=()=>{
-  if(!confirm("確定清除所有紀錄？")) return;
-  localStorage.removeItem("chat_history");
-  chat.innerHTML="";
-  historyList.innerHTML="";
-}
-
-/* === 載入歷史 === */
-const historyData=JSON.parse(localStorage.getItem("chat_history")||"[]");
-historyData.forEach(m=>{
-  render(m.role,m.text);
-  addHistory(m);
-});
-
-/* === 送出 === */
-sendBtn.onclick=async()=>{
-  const text=input.value.trim();
-  const file=imageInput.files[0];
-  if(!text && !file) return;
-
-  render("user",text||"上傳圖片");
-  save("user",text||"[圖片]");
-  input.value=""; imageInput.value="";
-
-  const loading=render("ai","思考中...");
-
-  try{
-    let reply="";
-    if(file){
-      const form=new FormData();
-      form.append("image",file);
-      const res=await fetch(`${BASE_URL}/parse-schedule-image`,{
-        method:"POST",body:form
-      });
-      const data=await res.json();
-      reply=JSON.stringify(data,null,2);
-    }else{
-      const res=await fetch(`${BASE_URL}/chat`,{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({message:text})
-      });
-      const data=await res.json();
-      reply=data.reply;
-    }
-    loading.remove();
-    render("ai",reply);
-    save("ai",reply);
-  }catch{
-    loading.textContent="❌ 連線失敗";
-  }
-};
-
-/* === UI functions === */
-function render(role,text){
-  const msg=document.createElement("div");
-  msg.className=`msg ${role}`;
-  const b=document.createElement("div");
-  b.className="bubble";
-  b.textContent=text;
-  msg.appendChild(b);
-  chat.appendChild(msg);
-  chat.scrollTop=chat.scrollHeight;
-  return b;
-}
-
-function save(role,text){
-  const data=JSON.parse(localStorage.getItem("chat_history")||"[]");
-  data.push({role,text});
-  localStorage.setItem("chat_history",JSON.stringify(data));
-  addHistory({role,text});
-}
-
-function addHistory({role,text}){
-  const div=document.createElement("div");
-  div.className="sidebar-item";
-  div.textContent=(role==="user"?"🧑":"🤖")+" "+text;
-  historyList.appendChild(div);
-}
-</script>
-
-</body>
-</html>
+    except Exception as e:
+        return ChatResponse(reply=f"❌ 發生錯誤：{str(e)}")
