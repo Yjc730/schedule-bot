@@ -50,10 +50,11 @@ class ParseScheduleResponse(BaseModel):
     events: List[Event]
 
 # =========================
-# ✅ 全域記憶
+# 全域記憶
 # =========================
 chat_memory: List[dict] = []
-image_events_cache: List[dict] = []   # ✅ 存圖片解析結果
+# 👇 圖片解析後的所有行程都塞在這裡
+image_events_cache: List[dict] = []
 
 # =========================
 # 健康檢查
@@ -63,36 +64,70 @@ async def root():
     return {"status": "ok", "message": "Gemini AI API Running"}
 
 # =========================
-# ✅ 聊天（像助理 + 可問行程）
+# ✅ 聊天（支援：助理聊天 + 問某天 / 問某節日）
 # =========================
 @app.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
     try:
         user_text = req.message.strip()
+        has_events = len(image_events_cache) > 0
 
-        # ✅ 如果是在問某一天的行程
-        date_match = re.search(r"(\d{1,2})\s*[日號]", user_text)
-
-        if date_match and image_events_cache:
-            day = date_match.group(1).zfill(2)
-            result = []
+        # ---------- 1️⃣ 問「某一天的行程」：例如 31 日行程 ----------
+        day_match = re.search(r"(\d{1,2})\s*[日号號]", user_text)
+        if day_match and has_events and ("行程" in user_text or "schedule" in user_text):
+            day = day_match.group(1).zfill(2)  # 31 -> "31"
+            items = []
 
             for e in image_events_cache:
-                if e["date"].endswith(f"-{day}"):
-                    result.append(
-                        f"• {e['start_time']} {e['title']}"
-                    )
+                date = e.get("date", "")
+                if date.endswith(f"-{day}"):
+                    start = e.get("start_time", "")
+                    title = e.get("title", "")
+                    if start or title:
+                        items.append(f"• {start} {title}".strip())
 
-            if result:
-                reply = f"📅 {int(day)} 日行程：\n" + "\n".join(result)
-                return ChatResponse(reply=reply)
+            if items:
+                reply = f"📅 {int(day)} 日行程：\n" + "\n".join(items)
             else:
-                return ChatResponse(reply=f"📅 {int(day)} 日沒有行程")
+                reply = f"📅 {int(day)} 日沒有找到行程喔～"
 
-        # ✅ 一般聊天模式
+            return ChatResponse(reply=reply)
+
+        # ---------- 2️⃣ 問「某個節日是哪一天」：例如 除夕是哪一天 ----------
+        # 從目前的 events 裡面抓出可能的「關鍵字」(title/raw_text)
+        if has_events and ("哪一天" in user_text or "哪天" in user_text or "幾號" in user_text):
+            # 把 user 問的文字拿去對 events 的 title / raw_text 做包含搜尋
+            keyword = None
+            for e in image_events_cache:
+                for field in ["title", "raw_text"]:
+                    val = (e.get(field) or "").strip()
+                    if val and val in user_text:
+                        keyword = val
+                        break
+                if keyword:
+                    break
+
+            if keyword:
+                matched_dates = set()
+                for e in image_events_cache:
+                    title = (e.get("title") or "")
+                    raw = (e.get("raw_text") or "")
+                    if keyword in title or keyword in raw:
+                        if e.get("date"):
+                            matched_dates.add(e["date"])
+
+                if matched_dates:
+                    dates_sorted = sorted(matched_dates)
+                    if len(dates_sorted) == 1:
+                        reply = f"📅「{keyword}」是在 {dates_sorted[0]}。"
+                    else:
+                        reply = "📅 找到多個日期：\n" + "\n".join(f"• {d}" for d in dates_sorted)
+                    return ChatResponse(reply=reply)
+
+        # ---------- 3️⃣ 一般聊天：當作暖暖的中文 AI 助理 ----------
         system_prompt = {
             "role": "system",
-            "content": "你是一個溫暖、自然、會用繁體中文聊天的 AI 助手。"
+            "content": "你是一個溫暖、自然、會用繁體中文聊天的 AI 助手，語氣像真人、輕鬆好聊。"
         }
 
         chat_memory.append({"role": "user", "content": user_text})
@@ -102,49 +137,48 @@ async def chat(req: ChatRequest):
             model="gemini-2.5-flash",
             contents=[m["content"] for m in messages]
         )
-
         reply = response.text.strip()
-        chat_memory.append({"role": "assistant", "content": reply})
 
+        chat_memory.append({"role": "assistant", "content": reply})
         return ChatResponse(reply=reply)
 
     except Exception as e:
         return ChatResponse(reply=f"❌ Gemini 聊天錯誤：{str(e)}")
 
-
 # =========================
-# ✅ 圖片解析（真正結構化版本）
+# ✅ 圖片解析（行事曆 → 乾淨 JSON + 快取）
 # =========================
 @app.post("/parse-schedule-image", response_model=ParseScheduleResponse)
 async def parse_schedule_image(image: UploadFile = File(...)):
+    """
+    這個 API 的角色很單純：
+    1. 把行事曆圖片解析成 events JSON
+    2. 存進 image_events_cache，給 /chat 後續查詢用
+    """
     global image_events_cache
 
     try:
         img_bytes = await image.read()
 
         prompt = """
-你現在是行事曆辨識系統。
-請從圖片中「只擷取真正的行程」，並輸出為 JSON 陣列：
+你現在是一個「行事曆辨識系統」。
+請從圖片中擷取所有「有內容的格子」，輸出成 JSON 陣列：
 
-欄位格式：
 [{
-  "title": "暫定 / 忙碌 / 會議 / 課程",
+  "title": "節日 / 行程名稱（例如：除夕、春節、會議、暫定、忙碌）",
   "date": "YYYY-MM-DD",
-  "start_time": "HH:MM",
+  "start_time": "",       // 有時間就填 HH:MM，沒有就留空字串
   "end_time": "",
-  "status": "",
+  "status": "",           // 忙碌 / 暫定 / 放假 ... 沒有就空字串
   "location": "",
   "notes": "",
-  "raw_text": "",
+  "raw_text": "該格子原始文字",
   "source": "image"
 }]
 
-❗規則：
-1️⃣ 只能回傳 JSON
-2️⃣ 不要任何說明文字
-3️⃣ 不要整月
-4️⃣ 只回傳「真正有標記事件的格子」
-5️⃣ 如果圖片沒有行程，回傳空陣列 []
+⚠️ 規則：
+1. 只能輸出 JSON 陣列，不要任何說明文字
+2. 如果沒有任何事件，回傳 []
 """
 
         response = client.models.generate_content(
@@ -160,14 +194,14 @@ async def parse_schedule_image(image: UploadFile = File(...)):
 
         raw = response.text.strip()
 
-        # ✅ 強制萃取 JSON
+        # 從回傳文字中抓出 JSON 陣列
         match = re.search(r"\[.*\]", raw, re.S)
         if not match:
             raise ValueError(f"非 JSON 回傳：{raw}")
 
         events = json.loads(match.group(0))
 
-        # ✅ 快取全月行程（給聊天查詢）
+        # ✅ 把 events 存起來，給 /chat 用
         image_events_cache = events
 
         return ParseScheduleResponse(events=events)
