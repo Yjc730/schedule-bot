@@ -1,236 +1,270 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8" />
-  <title>AI 助理</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta charset="UTF-8" />
+<title>AI 助理</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <style>
-    :root {
-      --bg-dark: linear-gradient(135deg, #020617, #0f172a);
-      --bg-light: linear-gradient(135deg, #f8fafc, #e5e7eb);
-      --glass-dark: rgba(15,15,20,0.9);
-      --glass-light: rgba(255,255,255,0.9);
-      --bubble-user: linear-gradient(135deg, #3b82f6, #2563eb);
-      --bubble-ai-dark: rgba(31,41,55,0.95);
-      --bubble-ai-light: rgba(255,255,255,0.98);
-      --text-dark: #e5e7eb;
-      --text-light: #0f172a;
-    }
+<style>
+:root{
+--bg-dark:linear-gradient(135deg,#020617,#0f172a);
+--bg-light:linear-gradient(135deg,#f8fafc,#e5e7eb);
+--glass-dark:rgba(15,15,20,.9);
+--glass-light:rgba(255,255,255,.92);
+--bubble-user:linear-gradient(135deg,#3b82f6,#2563eb);
+--bubble-ai-dark:rgba(31,41,55,.95);
+--bubble-ai-light:rgba(255,255,255,.98);
+--text-dark:#e5e7eb;
+--text-light:#0f172a;
+}
 
-    body {
-      margin: 0;
-      height: 100vh;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: var(--bg-dark);
-      color: var(--text-dark);
-      overflow: hidden;
-    }
+body{
+margin:0;height:100vh;
+font-family:system-ui;
+background:var(--bg-dark);
+color:var(--text-dark);
+overflow:hidden;
+}
 
-    body.light {
-      background: var(--bg-light);
-      color: var(--text-light);
-    }
+body.light{
+background:var(--bg-light);
+color:var(--text-light);
+}
 
-    /* 掃描線 */
-    body::after {
-      content: "";
-      position: fixed;
-      inset: 0;
-      background:
-        repeating-linear-gradient(
-          to bottom,
-          rgba(255,255,255,0.03),
-          rgba(255,255,255,0.03) 1px,
-          transparent 2px,
-          transparent 4px
-        );
-      animation: scan 6s linear infinite;
-      pointer-events: none;
-      z-index: 0;
-    }
+/* 掃描線 */
+body::after{
+content:"";
+position:fixed;inset:0;
+background:
+repeating-linear-gradient(to bottom,
+rgba(255,255,255,.04),
+rgba(255,255,255,.04) 1px,
+transparent 2px,
+transparent 4px);
+animation:scan 7s linear infinite;
+pointer-events:none;
+}
 
-    @keyframes scan {
-      from { background-position-y: -100%; }
-      to   { background-position-y: 100%; }
-    }
+@keyframes scan{
+from{background-position-y:-100%}
+to{background-position-y:100%}
+}
 
-    .wrapper {
-      position: relative;
-      width: 100%;
-      height: 100%;
-      display: flex;
-      z-index: 1;
-    }
+.wrapper{width:100%;height:100%;display:flex}
 
-    .sidebar {
-      width: 280px;
-      background: rgba(0,0,0,0.8);
-      position: absolute;
-      left: -280px;
-      top: 0;
-      bottom: 0;
-      transition: .3s;
-      z-index: 20;
-      display: flex;
-      flex-direction: column;
-    }
+/* 側邊欄 */
+.sidebar{
+width:280px;
+background:rgba(0,0,0,.8);
+backdrop-filter:blur(20px);
+position:absolute;left:-280px;top:0;bottom:0;
+transition:.35s;
+display:flex;flex-direction:column;
+z-index:10;
+}
 
-    .sidebar.show {
-      left: 0;
-    }
+.sidebar.show{left:0}
 
-    .sidebar-header {
-      padding: 12px;
-      font-weight: 600;
-      display: flex;
-      justify-content: space-between;
-    }
+.sidebar-header{
+padding:14px;
+display:flex;
+justify-content:space-between;
+border-bottom:1px solid rgba(148,163,184,.4)
+}
 
-    .sidebar-body {
-      flex: 1;
-      overflow-y: auto;
-      padding: 10px;
-      font-size: 13px;
-    }
+.sidebar-body{flex:1;overflow:auto;padding:10px}
 
-    .sidebar-item {
-      padding: 6px;
-      margin-bottom: 4px;
-      border-radius: 6px;
-      background: rgba(255,255,255,0.1);
-    }
+.sidebar-item{
+font-size:13px;
+padding:6px 8px;
+margin-bottom:4px;
+background:rgba(255,255,255,.05);
+border-radius:8px;
+}
 
-    .app {
-      flex: 1;
-      margin: 16px;
-      border-radius: 24px;
-      background: var(--glass-dark);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
+/* 主畫面 */
+.app{
+flex:1;
+margin:16px;
+border-radius:22px;
+background:var(--glass-dark);
+backdrop-filter:blur(25px);
+display:flex;flex-direction:column;
+overflow:hidden;
+transition:.35s;
+}
 
-    .app.shift {
-      margin-left: 300px;
-    }
+body.light .app{
+background:var(--glass-light);
+}
 
-    .header {
-      padding: 12px;
-      border-bottom: 1px solid gray;
-      display: flex;
-      justify-content: space-between;
-    }
+.app.shift{margin-left:296px}
 
-    .chat {
-      flex: 1;
-      padding: 12px;
-      overflow-y: auto;
-    }
+/* Header */
+.header{
+padding:14px 18px;
+display:flex;
+justify-content:space-between;
+border-bottom:1px solid rgba(148,163,184,.4)
+}
 
-    .message {
-      display: flex;
-      margin-bottom: 10px;
-    }
+/* 聊天區 */
+.chat{
+flex:1;
+padding:18px;
+overflow-y:auto;
+}
 
-    .user { justify-content: flex-end; }
-    .assistant { justify-content: flex-start; }
+.message{display:flex;margin-bottom:10px}
+.user{justify-content:flex-end}
+.assistant{justify-content:flex-start}
 
-    .bubble {
-      max-width: 75%;
-      padding: 8px 12px;
-      border-radius: 12px;
-      background: #333;
-    }
+.bubble{
+max-width:78%;
+padding:10px 14px;
+border-radius:18px;
+line-height:1.6;
+font-size:14px;
+white-space:pre-wrap;
+}
 
-    .user .bubble {
-      background: #2563eb;
-      color: white;
-    }
+.user .bubble{
+background:var(--bubble-user);
+color:#fff;
+border-radius:18px 18px 6px 18px;
+}
 
-    .footer {
-      padding: 10px;
-      border-top: 1px solid gray;
-    }
-  </style>
+.assistant .bubble{
+background:var(--bubble-ai-dark);
+color:var(--text-dark);
+border-radius:18px 18px 18px 6px;
+}
+
+body.light .assistant .bubble{
+background:var(--bubble-ai-light);
+color:var(--text-light);
+}
+
+/* 輸入區 */
+.footer{
+padding:12px;
+border-top:1px solid rgba(148,163,184,.4)
+}
+
+.input-row{display:flex;gap:8px}
+
+textarea{
+flex:1;
+resize:none;
+padding:10px 12px;
+border-radius:12px;
+border:none;
+font-size:14px;
+background:rgba(0,0,0,.35);
+color:white;
+outline:none;
+}
+
+body.light textarea{
+background:rgba(255,255,255,.85);
+color:#0f172a;
+}
+
+/* 按鈕 */
+.controls{display:flex;gap:8px;margin-top:6px}
+
+button{
+flex:1;
+padding:10px;
+border-radius:999px;
+border:none;
+font-weight:600;
+background:#2563eb;
+color:white;
+cursor:pointer;
+}
+
+button:hover{opacity:.9}
+
+.thumb{
+margin-top:6px;
+max-width:150px;
+border-radius:10px;
+}
+
+</style>
 </head>
 
 <body>
-
 <div class="wrapper">
 
-  <aside id="sidebar" class="sidebar">
-    <div class="sidebar-header">
-      <span>📜 紀錄</span>
-      <span id="clearHistory">清除</span>
-    </div>
-    <div id="historyList" class="sidebar-body"></div>
-  </aside>
+<aside id="sidebar" class="sidebar">
+<div class="sidebar-header">
+<span>📜 聊天紀錄</span>
+<span id="clearHistory">清除</span>
+</div>
+<div id="historyList" class="sidebar-body"></div>
+</aside>
 
-  <main id="app" class="app">
+<main id="app" class="app">
+<header class="header">
+<span>✨ AI 助理</span>
+<div>
+<span id="historyBtn">📜</span>
+<span id="themeBtn">🌓</span>
+</div>
+</header>
 
-    <header class="header">
-      ✨ AI 助理
-      <div>
-        <span id="historyBtn">📜</span>
-        <span id="themeBtn">🌓</span>
-      </div>
-    </header>
+<section id="chat" class="chat"></section>
 
-    <section id="chat" class="chat"></section>
+<footer class="footer">
+<div class="input-row">
+<input type="file" id="imageInput" accept="image/*" />
+<textarea id="input" rows="2" placeholder="輸入訊息…"></textarea>
+</div>
+<div class="controls">
+<button id="send">送出</button>
+</div>
+</footer>
 
-    <footer class="footer">
-      <input type="file" id="imageInput">
-      <textarea id="input"></textarea>
-      <button id="send">送出</button>
-    </footer>
-
-  </main>
+</main>
 </div>
 
 <script>
-const BASE_URL = "https://schedule-bot-production-32ae.up.railway.app";
+const chat=document.getElementById("chat");
+const input=document.getElementById("input");
+const send=document.getElementById("send");
+const theme=document.getElementById("themeBtn");
+const historyBtn=document.getElementById("historyBtn");
+const sidebar=document.getElementById("sidebar");
+const app=document.getElementById("app");
 
-const sendBtn = document.getElementById("send");
-const inputEl = document.getElementById("input");
-const chatEl = document.getElementById("chat");
-const historyBtn = document.getElementById("historyBtn");
-const sidebar = document.getElementById("sidebar");
-const appEl = document.getElementById("app");
-
-historyBtn.onclick = () => {
-  sidebar.classList.toggle("show");
-  appEl.classList.toggle("shift");
+theme.onclick=()=>{
+document.body.classList.toggle("light")
 };
 
-sendBtn.onclick = async () => {
-  const text = inputEl.value.trim();
-  if (!text) return;
-
-  addMessage("user", text);
-  inputEl.value = "";
-
-  const res = await fetch(`${BASE_URL}/chat`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message: text })
-  });
-
-  const data = await res.json();
-  addMessage("assistant", data.reply);
+historyBtn.onclick=()=>{
+sidebar.classList.toggle("show");
+app.classList.toggle("shift");
 };
 
-function addMessage(role, text) {
-  const div = document.createElement("div");
-  div.className = `message ${role}`;
-  const bubble = document.createElement("div");
-  bubble.className = "bubble";
-  bubble.textContent = text;
-  div.appendChild(bubble);
-  chatEl.appendChild(div);
-  chatEl.scrollTop = chatEl.scrollHeight;
+send.onclick=()=>{
+if(!input.value.trim()) return;
+add("user",input.value);
+setTimeout(()=>add("assistant","✅ 已收到："+input.value),500);
+input.value="";
+};
+
+function add(role,text){
+const wrap=document.createElement("div");
+wrap.className=`message ${role}`;
+const b=document.createElement("div");
+b.className="bubble";
+b.textContent=text;
+wrap.appendChild(b);
+chat.appendChild(wrap);
+chat.scrollTop=chat.scrollHeight;
 }
 </script>
-
 </body>
 </html>
