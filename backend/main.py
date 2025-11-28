@@ -1,6 +1,6 @@
 import os
-import re
 import json
+import re
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -9,7 +9,7 @@ import google.genai as genai
 from google.genai import types
 
 # =========================
-# Gemini
+# Gemini API Key
 # =========================
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=GEMINI_API_KEY)
@@ -38,10 +38,9 @@ class ChatResponse(BaseModel):
 class Event(BaseModel):
     title: str
     date: str
-    start_time: Optional[str] = ""
-    end_time: Optional[str] = ""
-    status: Optional[str] = ""
-    calendar_type: Optional[str] = "image"
+    start_time: str
+    end_time: str
+    status: str
     location: Optional[str] = ""
     notes: Optional[str] = ""
     raw_text: Optional[str] = None
@@ -51,90 +50,83 @@ class ParseScheduleResponse(BaseModel):
     events: List[Event]
 
 # =========================
-# ✅ 記憶區
+# ✅ 聊天上下文記憶
 # =========================
 chat_memory: List[dict] = []
-event_memory: List[Event] = []
 
 # =========================
-# ✅ Chat（同時支援問答 + 查行程）
+# Root
+# =========================
+@app.get("/")
+async def root():
+    return {"status": "ok", "message": "Gemini AI API Running"}
+
+# =========================
+# ✅ 一般聊天（助理模式）
 # =========================
 @app.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
-    user_text = req.message.strip()
-
-    # ✅ 嘗試抓「幾號」
-    day_match = re.search(r"(\d{1,2})\s*日", user_text)
-
-    if day_match:
-        day = day_match.group(1).zfill(2)
-
-        day_events = [
-            e for e in event_memory
-            if e.date.endswith(f"-{day}")
-        ]
-
-        if not day_events:
-            return ChatResponse(reply=f"📅 {int(day)} 日沒有任何行程")
-
-        lines = [f"📅 {int(day)} 日行程："]
-        for e in day_events:
-            status = e.status or e.title or "行程"
-            time = e.start_time or "未知時間"
-            lines.append(f"• {time} {status}")
-
-        return ChatResponse(reply="\n".join(lines))
-
-    # ✅ 一般聊天（像助理）
-    chat_memory.append({"role": "user", "content": user_text})
-
-    system_prompt = {
-        "role": "system",
-        "content": "你是自然親切的 AI 助理，使用繁體中文回答。"
-    }
-
-    messages = [system_prompt] + chat_memory[-10:]
-
     try:
+        chat_memory.append({"role": "user", "content": req.message})
+
+        system_prompt = {
+            "role": "system",
+            "content": """
+你是一個溫暖、自然、會用繁體中文聊天的 AI 助手。
+可以正常聊天、解釋事情、回答問題。
+如果使用者是問圖片解析的內容，你不要亂猜，只根據已解析資料回覆。
+"""
+        }
+
+        messages = [system_prompt] + chat_memory[-10:]
+
         response = client.models.generate_content(
             model="gemini-2.5-flash",
-            contents=[m["content"] for m in messages]
+            contents=[m["content"] for m in messages],
         )
 
         reply = response.text.strip()
         chat_memory.append({"role": "assistant", "content": reply})
+
         return ChatResponse(reply=reply)
 
     except Exception as e:
-        return ChatResponse(reply=f"❌ 發生錯誤：{str(e)}")
+        return ChatResponse(reply=f"❌ Gemini 聊天錯誤：{str(e)}")
 
 # =========================
-# ✅ 圖片 → 結構化行程
+# ✅ 行事曆圖片解析（只抓「可用的行程事件」）
 # =========================
 @app.post("/parse-schedule-image", response_model=ParseScheduleResponse)
 async def parse_schedule_image(image: UploadFile = File(...)):
-    img_bytes = await image.read()
+    try:
+        img_bytes = await image.read()
 
-    prompt = """
-請將這張圖片中的「所有行事曆行程」轉為 JSON 陣列，
+        prompt = """
+請從這張行事曆圖片中，只擷取「實際有行程的事件」，並輸出為 JSON 陣列（不要說明文字）：
+
 格式如下：
-
 [
   {
-    "title": "會議",
-    "date": "2025-01-31",
-    "start_time": "09:30",
-    "end_time": "10:00",
-    "status": "暫定",
+    "title": "暫定 / 忙碌 / 會議 / 上課 / 約會 / 工作 / 其他",
+    "date": "YYYY-MM-DD",
+    "start_time": "HH:MM",
+    "end_time": "",
+    "status": "暫定 / 忙碌 / 已確定 / 空閒 / 其他",
     "location": "",
-    "notes": ""
+    "notes": "",
+    "raw_text": "圖片上原始文字",
+    "source": "image"
   }
 ]
 
-只輸出 JSON，不要輸出說明文字。
+⚠️ 規則：
+1. 只輸出「看得到具體時間」的行程
+2. 不要輸出整個月份介紹
+3. 不要輸出 UI 版面描述
+4. 不要輸出無日期的內容
+5. 僅輸出 JSON 陣列本體
 """
 
-    try:
         response = client.models.generate_content(
             model="gemini-2.5-flash",
             contents=[
@@ -146,23 +138,49 @@ async def parse_schedule_image(image: UploadFile = File(...)):
             ],
         )
 
-        json_text = response.text.strip()
-        events_data = json.loads(json_text)
+        raw_text = response.text.strip()
 
-        parsed_events = []
-        for e in events_data:
-            event = Event(**e, source="image")
-            parsed_events.append(event)
-            event_memory.append(event)
+        # ✅ 強制抽出 JSON 陣列
+        match = re.search(r"\[\s*{.*?}\s*\]", raw_text, re.S)
+        if not match:
+            raise ValueError("沒有解析到有效的事件 JSON")
 
-        return ParseScheduleResponse(events=parsed_events)
+        events = json.loads(match.group(0))
+        return ParseScheduleResponse(events=events)
 
     except Exception as e:
         return ParseScheduleResponse(events=[
             Event(
-                title="解析失敗",
+                title="圖片解析失敗",
                 date="",
+                start_time="",
+                end_time="",
+                status="error",
+                location="",
                 notes=str(e),
+                raw_text=None,
                 source="image"
             )
         ])
+
+# =========================
+# ✅ 「單日行程整理」（給你前端顯示用）
+# =========================
+@app.post("/format-day-schedule", response_model=ChatResponse)
+async def format_day_schedule(req: ParseScheduleResponse):
+    try:
+        if not req.events:
+            return ChatResponse(reply="⚠️ 這一天沒有行程")
+
+        date = req.events[0].date
+        lines = [f"📅 {date} 行程："]
+
+        for e in req.events:
+            time = e.start_time or "未知時間"
+            status = e.status or e.title or "行程"
+            lines.append(f"• {time} {status}")
+
+        return ChatResponse(reply="\n".join(lines))
+
+    except Exception as e:
+        return ChatResponse(reply=f"格式化失敗：{str(e)}")
