@@ -1,12 +1,13 @@
 import os
 import json
 import re
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
 import google.genai as genai
 from google.genai import types
+from datetime import datetime
 
 # =========================
 # Gemini API Key
@@ -49,10 +50,9 @@ class ParseScheduleResponse(BaseModel):
     events: List[Event]
 
 # =========================
-# ✅ 記憶區（聊天 + 行事曆）
+# ✅ 聊天上下文
 # =========================
 chat_memory: List[dict] = []
-schedule_memory: List[Event] = []
 
 # =========================
 # Root
@@ -62,35 +62,16 @@ async def root():
     return {"status": "ok"}
 
 # =========================
-# ✅ 智能聊天（會自動判斷是否在問行事曆）
+# ✅ 一般聊天（助理模式）
 # =========================
 @app.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
     try:
-        user_msg = req.message.strip()
+        chat_memory.append({"role": "user", "content": req.message})
 
-        # ✅ 1️⃣ 如果使用者在問「某一天的行程」
-        date_match = re.search(r"(\d{1,2})[ 日号]", user_msg)
-        if date_match and schedule_memory:
-            day = date_match.group(1).zfill(2)
-            filtered = [
-                e for e in schedule_memory if e.date.endswith(f"-{day}")
-            ]
-
-            if not filtered:
-                return ChatResponse(reply=f"📭 {int(day)} 日目前沒有行程")
-
-            result = f"📅 {int(day)} 日行程：\n"
-            for e in filtered:
-                result += f"• {e.start_time} {e.title}\n"
-
-            return ChatResponse(reply=result.strip())
-
-        # ✅ 2️⃣ 否則就是正常助理聊天
-        chat_memory.append({"role": "user", "content": user_msg})
         system_prompt = {
             "role": "system",
-            "content": "你是一個溫暖自然的繁體中文助理，回答要簡潔，不要長篇說明。"
+            "content": "你是溫暖、自然、會用繁體中文回答的 AI 助理，回答簡短、有條理。"
         }
 
         messages = [system_prompt] + chat_memory[-10:]
@@ -106,10 +87,10 @@ async def chat(req: ChatRequest):
         return ChatResponse(reply=reply)
 
     except Exception as e:
-        return ChatResponse(reply=f"❌ Gemini 錯誤：{str(e)}")
+        return ChatResponse(reply=f"❌ 錯誤：{str(e)}")
 
 # =========================
-# ✅ 圖片解析 → 真正轉成「乾淨的行事曆資料」
+# ✅ 行事曆圖片 → 只輸出 Events JSON
 # =========================
 @app.post("/parse-schedule-image", response_model=ParseScheduleResponse)
 async def parse_schedule_image(image: UploadFile = File(...)):
@@ -117,17 +98,19 @@ async def parse_schedule_image(image: UploadFile = File(...)):
         img_bytes = await image.read()
 
         prompt = """
-請從圖片中辨識所有「行事曆行程」，
-並嚴格只輸出以下格式的 JSON 陣列（不要說明）：
+請從行事曆圖片中只萃取「行程資料」，
+只回傳以下 JSON 陣列格式，不要任何說明：
 
 [
   {
-    "title": "暫定 / 忙碌",
+    "title": "",
     "date": "YYYY-MM-DD",
     "start_time": "HH:MM",
     "end_time": "",
     "location": "",
-    "notes": ""
+    "notes": "",
+    "raw_text": null,
+    "source": "image"
   }
 ]
 """
@@ -143,18 +126,13 @@ async def parse_schedule_image(image: UploadFile = File(...)):
             ],
         )
 
-        raw = response.text
-        match = re.search(r"\[.*\]", raw, re.S)
+        raw_text = response.text
+        match = re.search(r"\[.*\]", raw_text, re.S)
+
         if not match:
-            raise ValueError("AI 未回傳正確 JSON")
+            raise ValueError("無法擷取 JSON")
 
-        events_data = json.loads(match.group(0))
-        events = [Event(**e) for e in events_data]
-
-        # ✅ 存入全域記憶，供之後「幾號有什麼行程」使用
-        schedule_memory.clear()
-        schedule_memory.extend(events)
-
+        events = json.loads(match.group(0))
         return ParseScheduleResponse(events=events)
 
     except Exception as e:
@@ -164,7 +142,39 @@ async def parse_schedule_image(image: UploadFile = File(...)):
                 date="",
                 start_time="",
                 end_time="",
-                notes=str(e),
-                source="image"
+                notes=str(e)
             )
         ])
+
+# =========================
+# ✅ 重點：指定某一天 → 極簡輸出格式
+# =========================
+@app.post("/get-day-schedule", response_model=ChatResponse)
+async def get_day_schedule(
+    target_date: str = Form(...),  # e.g. 2016-05-31
+    events_json: str = Form(...)
+):
+    try:
+        events = json.loads(events_json)
+
+        filtered = [
+            e for e in events
+            if e.get("date") == target_date
+        ]
+
+        day = int(target_date.split("-")[2])
+
+        if not filtered:
+            return ChatResponse(reply=f"📅 {day} 日沒有行程")
+
+        lines = [f"📅 {day} 日行程："]
+
+        for e in filtered:
+            time = e.get("start_time", "")
+            title = e.get("title", "")
+            lines.append(f"• {time} {title}")
+
+        return ChatResponse(reply="\n".join(lines))
+
+    except Exception as e:
+        return ChatResponse(reply=f"❌ 行程整理失敗：{str(e)}")
