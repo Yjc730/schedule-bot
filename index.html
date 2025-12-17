@@ -17,7 +17,6 @@
       --text-light: #0f172a;
     }
     * { box-sizing: border-box; }
-
     body {
       margin: 0;
       height: 100vh;
@@ -30,7 +29,6 @@
       background: var(--bg-light);
       color: var(--text-light);
     }
-
     /* 🔥 掃描線 + 玻璃雜訊科技層 */
     body::after {
       content: "";
@@ -58,7 +56,6 @@
       from { background-position-y: -100%; }
       to   { background-position-y: 100%; }
     }
-
     /* 外層 */
     .wrapper {
       position: relative;
@@ -67,7 +64,6 @@
       display: flex;
       z-index: 1;
     }
-
     /* 📜 側邊聊天紀錄 */
     .sidebar {
       width: 260px;
@@ -89,7 +85,6 @@
       color: #0f172a;
     }
     .sidebar.show { left: 0; }
-
     .sidebar-header {
       padding: 14px 16px;
       font-weight: 600;
@@ -124,7 +119,6 @@
       font-size: 12px;
       opacity: 0.8;
     }
-
     /* 💬 主聊天室 */
     .app {
       flex: 1;
@@ -143,7 +137,6 @@
       box-shadow: 0 24px 60px rgba(15,23,42,0.25);
     }
     .app.shift { margin-left: 276px; }
-
     /* Header */
     .header {
       padding: 14px 18px;
@@ -164,7 +157,6 @@
       font-size: 18px;
       user-select: none;
     }
-
     /* 聊天列表 */
     .chat {
       flex: 1;
@@ -179,7 +171,6 @@
     }
     .user { justify-content: flex-end; }
     .assistant { justify-content: flex-start; }
-
     .bubble {
       max-width: 78%;
       padding: 10px 14px;
@@ -208,7 +199,6 @@
       color: var(--text-light);
       box-shadow: 0 8px 24px rgba(15,23,42,0.2);
     }
-
     .thinking {
       opacity: .7;
       font-style: italic;
@@ -226,7 +216,6 @@
       opacity: .6;
       margin-top: 4px;
     }
-
     /* 輸入區 */
     .footer {
       padding: 12px 14px;
@@ -250,9 +239,7 @@
       white-space: nowrap;
     }
     .file-label span { text-decoration: underline; }
-
     input[type="file"] { display: none; }
-
     textarea {
       flex: 1;
       resize: none;
@@ -269,7 +256,6 @@
       background: #f9fafb;
       color: #0f172a;
     }
-
     .controls {
       display: flex;
       gap: 8px;
@@ -297,7 +283,6 @@
       box-shadow: none;
       transform: none;
     }
-
     /* 動畫 */
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(4px); }
@@ -311,7 +296,6 @@
     @keyframes blink {
       0% { opacity:.3; } 50% { opacity:1; } 100% { opacity:.3; }
     }
-
     @media (max-width: 768px) {
       .app { margin: 8px; border-radius: 18px; }
       .app.shift { margin-left: 0; }
@@ -330,7 +314,6 @@
     </div>
     <div id="historyList" class="sidebar-body"></div>
   </aside>
-
   <!-- 💬 主聊天室 -->
   <main id="app" class="app">
     <header class="header">
@@ -340,14 +323,12 @@
         <span id="themeBtn" class="toggle" title="深色 / 亮色">🌓</span>
       </div>
     </header>
-
     <section id="chat" class="chat"></section>
-
     <footer class="footer">
       <div class="input-row">
         <label class="file-label">
-          📎 <span>圖片</span>
-          <input type="file" id="imageInput" accept="image/*" />
+          📎 <span>圖片 / PDF</span>
+          <input type="file" id="imageInput" accept="image/*,.pdf,application/pdf" />
         </label>
         <textarea id="input" rows="2" placeholder="輸入文字或用語音…"></textarea>
       </div>
@@ -358,9 +339,8 @@
     </footer>
   </main>
 </div>
-
 <script>
-  // 👉 改成你自己的 Railway URL
+  // 👉 記得改成你自己的 Railway URL
   const BASE_URL = "https://schedule-bot-production-32ae.up.railway.app";
 
   const chatEl = document.getElementById("chat");
@@ -421,27 +401,29 @@
   sendBtn.onclick = async () => {
     const text = inputEl.value.trim();
     const file = imageInput.files[0];
-
     if (!text && !file) return;
 
-    // 顯示使用者訊息 + 縮圖
-    const previewUrl = file ? URL.createObjectURL(file) : null;
-    renderMessage("user", text || "🖼 上傳了一張圖片", { imageUrl: previewUrl });
-    saveHistory({ role: "user", text: text || "[圖片]" });
+    const previewUrl = file && file.type.startsWith("image/")
+      ? URL.createObjectURL(file)
+      : null;
+
+    renderMessage("user", text || (file ? `🗂 上傳了一個檔案：${file.name}` : ""), {
+      imageUrl: previewUrl,
+    });
+    saveHistory({ role: "user", text: text || `[檔案] ${file ? file.name : ""}` });
 
     inputEl.value = "";
-
     const thinkingBubble = renderMessage("assistant", "… 正在思考中", { thinking: true });
     const startTime = performance.now();
 
     try {
       const form = new FormData();
       form.append("message", text);
-      if (file) form.append("image", file);
+      if (file) form.append("image", file); // 後端參數叫 image，實際可以是圖片或 PDF
 
       const res = await fetch(`${BASE_URL}/chat`, {
         method: "POST",
-        body: form
+        body: form,
       });
 
       if (!res.ok) {
