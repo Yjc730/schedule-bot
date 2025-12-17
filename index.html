@@ -16,7 +16,9 @@
       --text-dark: #e5e7eb;
       --text-light: #0f172a;
     }
+
     * { box-sizing: border-box; }
+
     body {
       margin: 0;
       height: 100vh;
@@ -25,10 +27,12 @@
       color: var(--text-dark);
       overflow: hidden;
     }
+
     body.light {
       background: var(--bg-light);
       color: var(--text-light);
     }
+
     /* 🔥 掃描線 + 玻璃雜訊科技層 */
     body::after {
       content: "";
@@ -52,260 +56,14 @@
       pointer-events: none;
       z-index: 0;
     }
+
     @keyframes scan {
       from { background-position-y: -100%; }
       to   { background-position-y: 100%; }
     }
-    /* 外層 */
-    .wrapper {
-      position: relative;
-      width: 100%;
-      height: 100%;
-      display: flex;
-      z-index: 1;
-    }
-    /* 📜 側邊聊天紀錄 */
-    .sidebar {
-      width: 260px;
-      background: rgba(0,0,0,0.78);
-      backdrop-filter: blur(20px);
-      border-right: 1px solid rgba(148,163,184,0.5);
-      position: absolute;
-      left: -260px;
-      top: 0;
-      bottom: 0;
-      transition: left .35s ease;
-      z-index: 20;
-      display: flex;
-      flex-direction: column;
-      color: #e5e7eb;
-    }
-    body.light .sidebar {
-      background: rgba(255,255,255,0.96);
-      color: #0f172a;
-    }
-    .sidebar.show { left: 0; }
-    .sidebar-header {
-      padding: 14px 16px;
-      font-weight: 600;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid rgba(148,163,184,0.5);
-      font-size: 14px;
-    }
-    .sidebar-body {
-      flex: 1;
-      overflow-y: auto;
-      padding: 10px 14px;
-      font-size: 13px;
-      line-height: 1.5;
-    }
-    .sidebar-item {
-      padding: 6px 8px;
-      border-radius: 8px;
-      margin-bottom: 4px;
-      background: rgba(15,23,42,0.4);
-      cursor: default;
-      white-space: nowrap;
-      text-overflow: ellipsis;
-      overflow: hidden;
-    }
-    body.light .sidebar-item {
-      background: rgba(148,163,184,0.15);
-    }
-    .sidebar-clear {
-      cursor: pointer;
-      font-size: 12px;
-      opacity: 0.8;
-    }
-    /* 💬 主聊天室 */
-    .app {
-      flex: 1;
-      margin: 16px;
-      border-radius: 24px;
-      background: var(--glass-dark);
-      box-shadow: 0 24px 80px rgba(0,0,0,0.7);
-      backdrop-filter: blur(24px);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      transition: margin-left .35s ease, background .2s ease, box-shadow .2s ease;
-    }
-    body.light .app {
-      background: var(--glass-light);
-      box-shadow: 0 24px 60px rgba(15,23,42,0.25);
-    }
-    .app.shift { margin-left: 276px; }
-    /* Header */
-    .header {
-      padding: 14px 18px;
-      border-bottom: 1px solid rgba(148,163,184,0.5);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-weight: 600;
-      font-size: 15px;
-    }
-    .header-right {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-    }
-    .toggle {
-      cursor: pointer;
-      font-size: 18px;
-      user-select: none;
-    }
-    /* 聊天列表 */
-    .chat {
-      flex: 1;
-      padding: 18px;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-    }
-    .message {
-      display: flex;
-      margin-bottom: 10px;
-      animation: fadeIn .25s ease;
-    }
-    .user { justify-content: flex-end; }
-    .assistant { justify-content: flex-start; }
-    .bubble {
-      max-width: 78%;
-      padding: 10px 14px;
-      border-radius: 18px;
-      line-height: 1.6;
-      font-size: 14px;
-      animation: breathe 3s infinite;
-      position: relative;
-      white-space: pre-wrap;
-      word-wrap: break-word;
-    }
-    .user .bubble {
-      background: var(--bubble-user);
-      color: #fff;
-      border-bottom-right-radius: 6px;
-      box-shadow: 0 8px 24px rgba(37,99,235,0.5);
-    }
-    .assistant .bubble {
-      background: var(--bubble-ai-dark);
-      color: var(--text-dark);
-      border-bottom-left-radius: 6px;
-      box-shadow: 0 8px 30px rgba(0,0,0,0.6);
-    }
-    body.light .assistant .bubble {
-      background: var(--bubble-ai-light);
-      color: var(--text-light);
-      box-shadow: 0 8px 24px rgba(15,23,42,0.2);
-    }
-    .thinking {
-      opacity: .7;
-      font-style: italic;
-      animation: blink 1.4s infinite;
-    }
-    .thumb {
-      margin-top: 6px;
-      border-radius: 12px;
-      max-width: 160px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-      display: block;
-    }
-    .meta {
-      font-size: 11px;
-      opacity: .6;
-      margin-top: 4px;
-    }
-    /* 輸入區 */
-    .footer {
-      padding: 12px 14px;
-      border-top: 1px solid rgba(148,163,184,0.5);
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .input-row {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-    .file-label {
-      font-size: 13px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      opacity: .9;
-      white-space: nowrap;
-    }
-    .file-label span { text-decoration: underline; }
-    input[type="file"] { display: none; }
-    textarea {
-      flex: 1;
-      resize: none;
-      padding: 10px 12px;
-      border-radius: 12px;
-      border: none;
-      font-size: 14px;
-      outline: none;
-      background: rgba(15,23,42,0.9);
-      color: #e5e7eb;
-      font-weight: 400;
-    }
-    body.light textarea {
-      background: #f9fafb;
-      color: #0f172a;
-    }
-    .controls {
-      display: flex;
-      gap: 8px;
-      margin-top: 4px;
-    }
-    button {
-      flex: 1;
-      padding: 10px;
-      border-radius: 999px;
-      border: none;
-      background: #2563eb;
-      color: #fff;
-      font-weight: 600;
-      cursor: pointer;
-      box-shadow: 0 8px 24px rgba(37,99,235,0.55);
-      transition: transform .12s ease, box-shadow .12s ease, opacity .12s ease;
-    }
-    button:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 10px 30px rgba(37,99,235,0.7);
-    }
-    button:disabled {
-      opacity: .5;
-      cursor: not-allowed;
-      box-shadow: none;
-      transform: none;
-    }
-    /* 動畫 */
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(4px); }
-      to   { opacity: 1; transform: none; }
-    }
-    @keyframes breathe {
-      0% { box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
-      50% { box-shadow: 0 10px 26px rgba(0,0,0,0.6); }
-      100% { box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
-    }
-    @keyframes blink {
-      0% { opacity:.3; } 50% { opacity:1; } 100% { opacity:.3; }
-    }
-    @media (max-width: 768px) {
-      .app { margin: 8px; border-radius: 18px; }
-      .app.shift { margin-left: 0; }
-      .sidebar { width: 80%; left: -80%; }
-      .sidebar.show { left: 0; }
-    }
-  </style>
-</head>
 <body>
 <div class="wrapper">
+
   <!-- 📜 側邊聊天紀錄 -->
   <aside id="sidebar" class="sidebar">
     <div class="sidebar-header">
@@ -314,17 +72,20 @@
     </div>
     <div id="historyList" class="sidebar-body"></div>
   </aside>
+
   <!-- 💬 主聊天室 -->
   <main id="app" class="app">
     <header class="header">
       <span>✨ AI 助理</span>
       <div class="header-right">
-        <span id="historyBtn" class="toggle" title="切換聊天記錄">📜</span>
+        <span id="historyBtn" class="toggle" title="切換聊天紀錄">📜</span>
         <span id="themeBtn" class="toggle" title="深色 / 亮色">🌓</span>
-        <span id="voiceBtn" class="toggle" title="開關語音">🔈</span>
+        <span id="voiceBtn" class="toggle" title="開關語音">🔇</span> <!-- 預設關閉語音 -->
       </div>
     </header>
+
     <section id="chat" class="chat"></section>
+
     <footer class="footer">
       <div class="input-row">
         <label class="file-label">
@@ -339,9 +100,10 @@
       </div>
     </footer>
   </main>
+
 </div>
 <script>
-  // 👉 記得改成你自己的 Railway URL
+  // 👉 改成你的 Railway URL
   const BASE_URL = "https://schedule-bot-production-32ae.up.railway.app";
 
   const chatEl = document.getElementById("chat");
@@ -351,12 +113,13 @@
   const imageInput = document.getElementById("imageInput");
   const themeBtn = document.getElementById("themeBtn");
   const historyBtn = document.getElementById("historyBtn");
+  const voiceBtn = document.getElementById("voiceBtn");
   const sidebar = document.getElementById("sidebar");
   const appEl = document.getElementById("app");
   const historyList = document.getElementById("historyList");
   const clearHistoryBtn = document.getElementById("clearHistory");
 
-  /* ========= 主題 ========= */
+  /* ========= 主題切換 ========= */
   if (localStorage.getItem("theme") === "light") {
     document.body.classList.add("light");
   }
@@ -371,6 +134,7 @@
     sidebar.classList.toggle("show");
     appEl.classList.toggle("shift");
   };
+
   clearHistoryBtn.onclick = () => {
     if (!confirm("確定要清除所有聊天記錄嗎？")) return;
     localStorage.removeItem("chat_history");
@@ -385,21 +149,20 @@
     addHistoryLine(m);
   });
 
-  /* ========= 語音開關 ========= */
-let voiceEnabled = JSON.parse(localStorage.getItem("voice_enabled") ?? "true");
-
-const voiceBtn = document.getElementById("voiceBtn");
-voiceBtn.textContent = voiceEnabled ? "🔈" : "🔇";
-
-voiceBtn.onclick = () => {
-  voiceEnabled = !voiceEnabled;
+  /* ========= 語音開關（預設關閉模式 A）========= */
+  let voiceEnabled = JSON.parse(localStorage.getItem("voice_enabled") ?? "false");
   voiceBtn.textContent = voiceEnabled ? "🔈" : "🔇";
-  localStorage.setItem("voice_enabled", JSON.stringify(voiceEnabled));
-};
 
-  /* ========= 語音輸入 ========= */
+  voiceBtn.onclick = () => {
+    voiceEnabled = !voiceEnabled;
+    voiceBtn.textContent = voiceEnabled ? "🔈" : "🔇";
+    localStorage.setItem("voice_enabled", JSON.stringify(voiceEnabled));
+  };
+
+  /* ========= 語音輸入（SpeechRecognition）========= */
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   const recog = SR ? new SR() : null;
+
   if (recog) {
     recog.lang = "zh-TW";
     micBtn.onclick = () => recog.start();
@@ -410,39 +173,40 @@ voiceBtn.onclick = () => {
     micBtn.disabled = true;
   }
 
-  /* ========= 送出 ========= */
+  /* ========= 送出訊息 ========= */
   sendBtn.onclick = async () => {
     const text = inputEl.value.trim();
     const file = imageInput.files[0];
+
     if (!text && !file) return;
 
-    const previewUrl = file && file.type.startsWith("image/")
-      ? URL.createObjectURL(file)
-      : null;
+    const previewUrl =
+      file && file.type.startsWith("image/") ? URL.createObjectURL(file) : null;
 
-    renderMessage("user", text || (file ? `🗂 上傳了一個檔案：${file.name}` : ""), {
+    renderMessage("user", text || (file ? `🗂 上傳檔案：${file.name}` : ""), {
       imageUrl: previewUrl,
     });
+
     saveHistory({ role: "user", text: text || `[檔案] ${file ? file.name : ""}` });
 
     inputEl.value = "";
-    const thinkingBubble = renderMessage("assistant", "… 正在思考中", { thinking: true });
+    const thinkingBubble = renderMessage("assistant", "… 正在思考中", {
+      thinking: true,
+    });
+
     const startTime = performance.now();
 
     try {
       const form = new FormData();
       form.append("message", text);
-      if (file) form.append("image", file); // 後端參數叫 image，實際可以是圖片或 PDF
+      if (file) form.append("image", file); // 圖片 or PDF
 
       const res = await fetch(`${BASE_URL}/chat`, {
         method: "POST",
         body: form,
       });
 
-      if (!res.ok) {
-        const err = await res.text();
-        throw new Error(err || res.statusText);
-      }
+      if (!res.ok) throw new Error(await res.text());
 
       const data = await res.json();
       const replyText = data.reply || "";
@@ -450,9 +214,11 @@ voiceBtn.onclick = () => {
 
       thinkingBubble.parentElement.remove();
       typeWriter(replyText, cost);
+
     } catch (err) {
       console.error(err);
       thinkingBubble.textContent = "❌ 連線失敗，請稍後再試";
+
     } finally {
       imageInput.value = "";
     }
@@ -461,6 +227,7 @@ voiceBtn.onclick = () => {
   /* ========= Render / Typewriter ========= */
   function renderMessage(role, text, options = {}) {
     const { thinking = false, imageUrl = null } = options;
+
     const item = document.createElement("div");
     item.className = `message ${role}`;
 
@@ -479,6 +246,7 @@ voiceBtn.onclick = () => {
     item.appendChild(bubble);
     chatEl.appendChild(item);
     chatEl.scrollTop = chatEl.scrollHeight;
+
     return bubble;
   }
 
@@ -487,21 +255,22 @@ voiceBtn.onclick = () => {
     const bubble = renderMessage("assistant", "");
     const meta = document.createElement("div");
     meta.className = "meta";
-    meta.textContent = `⏱ 回覆時間約 ${seconds}s`;
+    meta.textContent = `⏱ 回覆時間：${seconds}s`;
 
     const timer = setInterval(() => {
       bubble.textContent += text[i++] || "";
       chatEl.scrollTop = chatEl.scrollHeight;
+
       if (i >= text.length) {
         clearInterval(timer);
         bubble.appendChild(meta);
-        speak(text);
+        speak(text); // ➜ 會依照 voiceEnabled 判斷
         saveHistory({ role: "assistant", text });
       }
     }, 18);
   }
 
-  /* ========= 側欄紀錄 ========= */
+  /* ========= 側欄儲存 ========= */
   function addHistoryLine({ role, text }) {
     const div = document.createElement("div");
     div.className = "sidebar-item";
@@ -517,15 +286,13 @@ voiceBtn.onclick = () => {
     addHistoryLine(entry);
   }
 
-  /* ========= 語音朗讀 ========= */
+  /* ========= 語音朗讀（依照 voiceEnabled）========= */
   function speak(text) {
+    if (!voiceEnabled) return;
     if (!window.speechSynthesis) return;
+
     const u = new SpeechSynthesisUtterance(text);
     u.lang = "zh-TW";
     speechSynthesis.speak(u);
   }
 </script>
-</body>
-</html>
-
-
