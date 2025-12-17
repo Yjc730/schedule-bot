@@ -385,6 +385,18 @@
     addHistoryLine(m);
   });
 
+  /* ========= 語音開關 ========= */
+let voiceEnabled = JSON.parse(localStorage.getItem("voice_enabled") ?? "true");
+
+const voiceBtn = document.getElementById("voiceBtn");
+voiceBtn.textContent = voiceEnabled ? "🔈" : "🔇";
+
+voiceBtn.onclick = () => {
+  voiceEnabled = !voiceEnabled;
+  voiceBtn.textContent = voiceEnabled ? "🔈" : "🔇";
+  localStorage.setItem("voice_enabled", JSON.stringify(voiceEnabled));
+};
+
   /* ========= 語音輸入 ========= */
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   const recog = SR ? new SR() : null;
@@ -515,4 +527,5 @@
 </script>
 </body>
 </html>
+
 
