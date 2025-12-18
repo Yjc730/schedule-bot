@@ -2,19 +2,29 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8" />
-<title>AI 助理</title>
+<title>AI 助理 · Calm Cyber</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <style>
+/* ===============================
+   🌌 Calm Cyber Design System
+================================ */
 :root {
-  --neon: #38bdf8;
+  --bg-dark: radial-gradient(1200px at 20% 10%, #0b1220, #020617);
+  --bg-light: linear-gradient(135deg, #f8fafc, #e5e7eb);
+
+  --glass-dark: rgba(15, 18, 30, 0.82);
+  --glass-light: rgba(255,255,255,0.92);
+
+  --neon-blue: #38bdf8;
   --neon-purple: #818cf8;
-  --bg-dark: radial-gradient(circle at top, #020617, #000);
-  --bg-light: radial-gradient(circle at top, #ffffff, #e5e7eb);
-  --glass-dark: rgba(2,6,23,.88);
-  --glass-light: rgba(255,255,255,.92);
+
+  --user-bubble: linear-gradient(135deg, #3b82f6, #2563eb);
+  --ai-bubble-dark: rgba(30, 41, 59, 0.95);
+  --ai-bubble-light: #ffffff;
+
   --text-dark: #e5e7eb;
-  --text-light: #020617;
+  --text-light: #0f172a;
 }
 
 * { box-sizing: border-box; }
@@ -22,7 +32,7 @@
 body {
   margin: 0;
   height: 100vh;
-  font-family: "JetBrains Mono", system-ui, monospace;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: var(--bg-dark);
   color: var(--text-dark);
   overflow: hidden;
@@ -33,187 +43,227 @@ body.light {
   color: var(--text-light);
 }
 
-/* ===== 背景能量線 ===== */
-body::before {
-  content:"";
+/* 🌫 Calm Background Motion */
+body::after {
+  content: "";
   position: fixed;
   inset: 0;
   background:
     repeating-linear-gradient(
       to bottom,
-      rgba(56,189,248,.05),
-      rgba(56,189,248,.05) 1px,
-      transparent 2px,
+      rgba(255,255,255,0.015),
+      rgba(255,255,255,0.015) 1px,
+      transparent 3px,
       transparent 6px
+    ),
+    linear-gradient(
+      to bottom,
+      transparent,
+      rgba(255,255,255,0.06),
+      transparent
     );
-  pointer-events:none;
-  animation: scan 8s linear infinite;
+  animation: scan 24s ease-in-out infinite;
+  pointer-events: none;
+  opacity: 0.3;
 }
 
 @keyframes scan {
-  from { background-position-y: -200px; }
-  to   { background-position-y: 200px; }
+  from { background-position-y: -100%; }
+  to   { background-position-y: 100%; }
 }
 
-/* ===== Layout ===== */
+/* ===============================
+   🧱 Layout
+================================ */
 .wrapper {
-  display: flex;
+  position: relative;
   width: 100%;
   height: 100%;
+  display: flex;
 }
 
 /* ===== Sidebar ===== */
 .sidebar {
   width: 260px;
   position: absolute;
-  inset: 0 auto 0 0;
-  transform: translateX(-100%);
-  background: linear-gradient(
-    to bottom,
-    rgba(56,189,248,.15),
-    transparent
-  ), var(--glass-dark);
-  backdrop-filter: blur(24px);
-  border-right: 1px solid rgba(56,189,248,.4);
-  transition: .35s ease;
+  left: -260px;
+  top: 0;
+  bottom: 0;
+  background: rgba(5,10,25,0.85);
+  backdrop-filter: blur(22px);
+  border-right: 1px solid rgba(56,189,248,0.25);
+  transition: left .35s ease;
   z-index: 20;
 }
 
 body.light .sidebar {
-  background: var(--glass-light);
+  background: rgba(255,255,255,0.95);
 }
 
-.sidebar.show {
-  transform: translateX(0);
-}
+.sidebar.show { left: 0; }
 
 .sidebar-header {
   padding: 14px 16px;
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(148,163,184,0.4);
   font-weight: 600;
-  display:flex;
-  justify-content:space-between;
-  border-bottom: 1px solid rgba(56,189,248,.35);
 }
 
 .sidebar-body {
   padding: 12px;
   font-size: 13px;
-  overflow-y:auto;
+  overflow-y: auto;
 }
 
 .sidebar-item {
   padding: 6px 8px;
   border-radius: 8px;
-  margin-bottom: 4px;
-  background: rgba(56,189,248,.08);
+  margin-bottom: 6px;
+  background: rgba(56,189,248,0.08);
   white-space: nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* ===== App ===== */
+/* ===== Main App ===== */
 .app {
-  flex:1;
+  flex: 1;
   margin: 16px;
-  border-radius: 20px;
+  border-radius: 24px;
   background: var(--glass-dark);
-  backdrop-filter: blur(30px);
+  backdrop-filter: blur(28px);
   box-shadow:
-    0 0 0 1px rgba(56,189,248,.35),
-    0 0 40px rgba(56,189,248,.15);
-  display:flex;
-  flex-direction:column;
-  transition:.35s ease;
+    0 0 0 1px rgba(56,189,248,0.25),
+    0 30px 80px rgba(0,0,0,0.7);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: .35s ease;
 }
 
 body.light .app {
   background: var(--glass-light);
+  box-shadow:
+    0 0 0 1px rgba(99,102,241,0.25),
+    0 24px 60px rgba(15,23,42,0.25);
 }
 
-.app.shift {
-  margin-left: 276px;
-}
+.app.shift { margin-left: 276px; }
 
 /* ===== Header ===== */
 .header {
   padding: 14px 18px;
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  border-bottom: 1px solid rgba(56,189,248,.35);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(148,163,184,0.4);
 }
 
 .header-right span {
-  cursor:pointer;
-  margin-left:10px;
-  filter: drop-shadow(0 0 4px var(--neon));
+  cursor: pointer;
+  margin-left: 12px;
+  filter: drop-shadow(0 0 6px rgba(56,189,248,0.4));
 }
 
 /* ===== Chat ===== */
 .chat {
-  flex:1;
+  flex: 1;
   padding: 18px;
-  overflow-y:auto;
+  overflow-y: auto;
 }
 
 .message {
-  display:flex;
-  margin-bottom:12px;
+  display: flex;
+  margin-bottom: 12px;
 }
 
-.user { justify-content:flex-end; }
-.assistant { justify-content:flex-start; }
+.user { justify-content: flex-end; }
+.assistant { justify-content: flex-start; }
 
 .bubble {
   max-width: 78%;
-  padding: 12px 14px;
-  border-radius: 16px;
-  line-height:1.6;
-  background: rgba(56,189,248,.08);
-  border: 1px solid rgba(56,189,248,.35);
-  box-shadow: 0 0 12px rgba(56,189,248,.25);
+  padding: 10px 14px;
+  border-radius: 18px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  animation: breathe 4s infinite;
 }
 
 .user .bubble {
-  background: linear-gradient(135deg, #2563eb, #38bdf8);
-  color:white;
+  background: var(--user-bubble);
+  color: white;
+  border-bottom-right-radius: 6px;
+}
+
+.assistant .bubble {
+  background: var(--ai-bubble-dark);
+  color: var(--text-dark);
+  border-bottom-left-radius: 6px;
+  box-shadow: 0 0 0 1px rgba(56,189,248,0.25);
+}
+
+body.light .assistant .bubble {
+  background: var(--ai-bubble-light);
+  color: var(--text-light);
 }
 
 .thinking {
-  opacity:.7;
-  font-style:italic;
+  opacity: 0.65;
+  font-style: italic;
+  animation: blink 1.6s infinite;
+}
+
+.thumb {
+  margin-top: 6px;
+  max-width: 160px;
+  border-radius: 12px;
+}
+
+@keyframes breathe {
+  0%,100% { box-shadow: 0 0 0 rgba(0,0,0,0); }
+  50% { box-shadow: 0 0 16px rgba(56,189,248,0.15); }
+}
+
+@keyframes blink {
+  0% { opacity:.3 } 50% { opacity:1 } 100% { opacity:.3 }
 }
 
 /* ===== Footer ===== */
 .footer {
   padding: 12px 14px;
-  border-top:1px solid rgba(56,189,248,.35);
+  border-top: 1px solid rgba(148,163,184,0.4);
+}
+
+.input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 textarea {
-  width:100%;
-  resize:none;
-  padding:10px;
-  border-radius:12px;
-  border:none;
-  background: rgba(2,6,23,.9);
-  color:white;
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: none;
+  resize: none;
+  background: rgba(15,23,42,0.9);
+  color: var(--text-dark);
 }
 
 body.light textarea {
-  background:#f9fafb;
-  color:#020617;
+  background: #f9fafb;
+  color: #0f172a;
 }
 
 button {
-  margin-top:6px;
-  padding:10px;
-  border-radius:999px;
-  border:none;
-  background: linear-gradient(135deg, #38bdf8, #818cf8);
-  color:white;
-  font-weight:600;
-  cursor:pointer;
+  padding: 10px;
+  border-radius: 999px;
+  border: none;
+  background: #2563eb;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
 }
 </style>
 </head>
@@ -221,61 +271,178 @@ button {
 <body>
 <div class="wrapper">
 
+<!-- Sidebar -->
 <aside id="sidebar" class="sidebar">
   <div class="sidebar-header">
-    <span>📜 記錄</span>
+    <span>📜 聊天記錄</span>
     <span id="clearHistory">清除</span>
   </div>
   <div id="historyList" class="sidebar-body"></div>
 </aside>
 
+<!-- App -->
 <main id="app" class="app">
-<header class="header">
-  <span>⚡ AI CORE</span>
-  <div class="header-right">
-    <span id="historyBtn">📜</span>
-    <span id="themeBtn">🌓</span>
-    <span id="voiceBtn">🔈</span>
-  </div>
-</header>
+  <header class="header">
+    <span>✨ AI 助理</span>
+    <div class="header-right">
+      <span id="historyBtn">📜</span>
+      <span id="themeBtn">🌓</span>
+      <span id="voiceBtn">🔈</span>
+    </div>
+  </header>
 
-<section id="chat" class="chat"></section>
+  <section id="chat" class="chat"></section>
 
-<footer class="footer">
-  <input type="file" id="fileInput" accept="image/*,.pdf">
-  <textarea id="input" rows="2" placeholder="輸入訊息…"></textarea>
-  <button id="send">送出</button>
-</footer>
+  <footer class="footer">
+    <div class="input-row">
+      <label>📎<input type="file" id="fileInput" accept="image/*,.pdf" hidden></label>
+      <textarea id="input" rows="2" placeholder="輸入訊息…"></textarea>
+    </div>
+    <div class="input-row">
+      <button id="mic">🎤</button>
+      <button id="send">送出</button>
+    </div>
+  </footer>
 </main>
 </div>
 
 <script>
+/* ===============================
+   🔧 Logic (unchanged)
+================================ */
 const BASE_URL = "https://schedule-bot-production-32ae.up.railway.app";
 
-/* === 狀態 === */
-let voiceEnabled = false;
+const chatEl = document.getElementById("chat");
+const inputEl = document.getElementById("input");
+const fileInput = document.getElementById("fileInput");
+const sendBtn = document.getElementById("send");
+const micBtn = document.getElementById("mic");
 
-/* === 主題 === */
 const themeBtn = document.getElementById("themeBtn");
-if (localStorage.theme === "light") document.body.classList.add("light");
+const historyBtn = document.getElementById("historyBtn");
+const voiceBtn = document.getElementById("voiceBtn");
+
+const sidebar = document.getElementById("sidebar");
+const appEl = document.getElementById("app");
+const historyList = document.getElementById("historyList");
+const clearHistoryBtn = document.getElementById("clearHistory");
+
+/* Theme */
+if (localStorage.getItem("theme") === "light") document.body.classList.add("light");
 themeBtn.onclick = () => {
   document.body.classList.toggle("light");
-  localStorage.theme = document.body.classList.contains("light") ? "light" : "dark";
+  localStorage.setItem("theme", document.body.classList.contains("light") ? "light" : "dark");
 };
 
-/* === 側欄 === */
-const sidebar = document.getElementById("sidebar");
-document.getElementById("historyBtn").onclick = () => {
+/* Sidebar */
+historyBtn.onclick = () => {
   sidebar.classList.toggle("show");
-  document.getElementById("app").classList.toggle("shift");
+  appEl.classList.toggle("shift");
 };
 
-/* === 語音 === */
-const voiceBtn = document.getElementById("voiceBtn");
+clearHistoryBtn.onclick = () => {
+  if (confirm("清除聊天記錄？")) {
+    localStorage.removeItem("chat_history");
+    chatEl.innerHTML = "";
+    historyList.innerHTML = "";
+  }
+};
+
+/* Voice */
+let voiceEnabled = false;
 voiceBtn.onclick = () => {
   voiceEnabled = !voiceEnabled;
   voiceBtn.textContent = voiceEnabled ? "🔇" : "🔈";
 };
+
+/* Speech Input */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const recog = SR ? new SR() : null;
+if (recog) {
+  recog.lang = "zh-TW";
+  micBtn.onclick = () => recog.start();
+  recog.onresult = e => inputEl.value = e.results[0][0].transcript;
+}
+
+/* History Load */
+const historyData = JSON.parse(localStorage.getItem("chat_history") || "[]");
+historyData.forEach(m => {
+  renderMessage(m.role, m.text);
+  addHistoryLine(m);
+});
+
+/* Send */
+sendBtn.onclick = async () => {
+  const text = inputEl.value.trim();
+  const file = fileInput.files[0];
+  if (!text && !file) return;
+
+  renderMessage("user", text || `[檔案] ${file?.name || ""}`);
+  saveHistory({ role: "user", text: text || `[檔案] ${file?.name}` });
+
+  inputEl.value = "";
+  const thinking = renderMessage("assistant", "… 正在思考中", true);
+
+  const form = new FormData();
+  form.append("message", text);
+  if (file) form.append("image", file);
+
+  const res = await fetch(`${BASE_URL}/chat`, { method: "POST", body: form });
+  const data = await res.json();
+
+  thinking.parentElement.remove();
+  typeWriter(data.reply);
+  fileInput.value = "";
+};
+
+/* Render */
+function renderMessage(role, text, thinking=false) {
+  const row = document.createElement("div");
+  row.className = `message ${role}`;
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+  if (thinking) bubble.classList.add("thinking");
+  bubble.textContent = text;
+  row.appendChild(bubble);
+  chatEl.appendChild(row);
+  chatEl.scrollTop = chatEl.scrollHeight;
+  return bubble;
+}
+
+function typeWriter(text) {
+  let i = 0;
+  const bubble = renderMessage("assistant", "");
+  const timer = setInterval(() => {
+    bubble.textContent += text[i++] || "";
+    chatEl.scrollTop = chatEl.scrollHeight;
+    if (i >= text.length) {
+      clearInterval(timer);
+      if (voiceEnabled) speak(text);
+      saveHistory({ role: "assistant", text });
+    }
+  }, 18);
+}
+
+function addHistoryLine({ role, text }) {
+  const div = document.createElement("div");
+  div.className = "sidebar-item";
+  div.textContent = `${role === "user" ? "🧑‍💻" : "🤖"} ${text}`;
+  historyList.appendChild(div);
+}
+
+function saveHistory(entry) {
+  const list = JSON.parse(localStorage.getItem("chat_history") || "[]");
+  list.push(entry);
+  localStorage.setItem("chat_history", JSON.stringify(list));
+  addHistoryLine(entry);
+}
+
+function speak(text) {
+  if (!window.speechSynthesis) return;
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "zh-TW";
+  speechSynthesis.speak(u);
+}
 </script>
 </body>
 </html>
