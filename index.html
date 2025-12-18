@@ -1,448 +1,820 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-<meta charset="UTF-8" />
-<title>AI 助理 · Calm Cyber</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="UTF-8" />
+  <title>AI 助理 · AI Lab Mode</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{
+      --bg0:#020617;
+      --bg1:#0b1220;
+      --panel: rgba(15, 23, 42, 0.72);
+      --panel2: rgba(2, 6, 23, 0.55);
+      --border: rgba(148,163,184,0.28);
+      --text:#e5e7eb;
+      --muted: rgba(226,232,240,0.7);
 
-<style>
-/* ===============================
-   🌌 Calm Cyber Design System
-================================ */
-:root {
-  --bg-dark: radial-gradient(1200px at 20% 10%, #0b1220, #020617);
-  --bg-light: linear-gradient(135deg, #f8fafc, #e5e7eb);
+      --aqua:#22d3ee;
+      --violet:#a78bfa;
+      --blue:#60a5fa;
 
-  --glass-dark: rgba(15, 18, 30, 0.82);
-  --glass-light: rgba(255,255,255,0.92);
+      --userGrad: linear-gradient(135deg, rgba(59,130,246,0.95), rgba(37,99,235,0.95));
+      --aiBg: rgba(31,41,55,0.92);
 
-  --neon-blue: #38bdf8;
-  --neon-purple: #818cf8;
+      --shadow: 0 26px 90px rgba(0,0,0,0.55);
+      --shadow2: 0 14px 40px rgba(0,0,0,0.35);
 
-  --user-bubble: linear-gradient(135deg, #3b82f6, #2563eb);
-  --ai-bubble-dark: rgba(30, 41, 59, 0.95);
-  --ai-bubble-light: #ffffff;
+      --radius: 22px;
+      --radius2: 16px;
+    }
 
-  --text-dark: #e5e7eb;
-  --text-light: #0f172a;
-}
+    /* Light theme */
+    body.light{
+      --bg0:#f8fafc;
+      --bg1:#e5e7eb;
+      --panel: rgba(255,255,255,0.72);
+      --panel2: rgba(255,255,255,0.55);
+      --border: rgba(15,23,42,0.12);
+      --text:#0f172a;
+      --muted: rgba(15,23,42,0.62);
 
-* { box-sizing: border-box; }
+      --aiBg: rgba(255,255,255,0.95);
+      --shadow: 0 22px 70px rgba(15,23,42,0.12);
+      --shadow2: 0 10px 28px rgba(15,23,42,0.10);
+    }
 
-body {
-  margin: 0;
-  height: 100vh;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background: var(--bg-dark);
-  color: var(--text-dark);
-  overflow: hidden;
-}
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      overflow:hidden;
+      background: radial-gradient(1200px 700px at 18% 20%, rgba(34,211,238,0.14), transparent 55%),
+                  radial-gradient(1000px 650px at 85% 35%, rgba(167,139,250,0.13), transparent 55%),
+                  linear-gradient(135deg, var(--bg0), var(--bg1));
+    }
 
-body.light {
-  background: var(--bg-light);
-  color: var(--text-light);
-}
+    /* Calm cyber layers (SLOW) */
+    body::before{
+      content:"";
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      z-index:0;
+      background:
+        linear-gradient(transparent 0%, rgba(255,255,255,0.05) 50%, transparent 100%),
+        repeating-linear-gradient(
+          to bottom,
+          rgba(255,255,255,0.025),
+          rgba(255,255,255,0.025) 1px,
+          transparent 2px,
+          transparent 6px
+        );
+      opacity:0.45;
+      animation: drift 22s linear infinite; /* ✅ 慢很多 */
+      transform: translateZ(0);
+    }
 
-/* 🌫 Calm Background Motion */
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background:
-    repeating-linear-gradient(
-      to bottom,
-      rgba(255,255,255,0.015),
-      rgba(255,255,255,0.015) 1px,
-      transparent 3px,
-      transparent 6px
-    ),
-    linear-gradient(
-      to bottom,
-      transparent,
-      rgba(255,255,255,0.06),
-      transparent
-    );
-  animation: scan 24s ease-in-out infinite;
-  pointer-events: none;
-  opacity: 0.3;
-}
+    body::after{
+      content:"";
+      position:fixed;
+      inset:-20%;
+      pointer-events:none;
+      z-index:0;
+      background:
+        radial-gradient(circle at 20% 25%, rgba(34,211,238,0.08), transparent 40%),
+        radial-gradient(circle at 80% 35%, rgba(167,139,250,0.08), transparent 42%),
+        radial-gradient(circle at 50% 80%, rgba(96,165,250,0.06), transparent 45%);
+      filter: blur(18px);
+      animation: breathe 16s ease-in-out infinite; /* ✅ 很柔 */
+      transform: translateZ(0);
+      opacity: 0.7;
+    }
 
-@keyframes scan {
-  from { background-position-y: -100%; }
-  to   { background-position-y: 100%; }
-}
+    @keyframes drift{
+      0%{ background-position-y: -60%; }
+      100%{ background-position-y: 60%; }
+    }
+    @keyframes breathe{
+      0%{ transform: translate3d(0,0,0) scale(1); opacity:0.62; }
+      50%{ transform: translate3d(0,-8px,0) scale(1.02); opacity:0.75; }
+      100%{ transform: translate3d(0,0,0) scale(1); opacity:0.62; }
+    }
 
-/* ===============================
-   🧱 Layout
-================================ */
-.wrapper {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  display: flex;
-}
+    .wrapper{
+      position:relative;
+      width:100%;
+      height:100%;
+      display:flex;
+      z-index:1;
+    }
 
-/* ===== Sidebar ===== */
-.sidebar {
-  width: 260px;
-  position: absolute;
-  left: -260px;
-  top: 0;
-  bottom: 0;
-  background: rgba(5,10,25,0.85);
-  backdrop-filter: blur(22px);
-  border-right: 1px solid rgba(56,189,248,0.25);
-  transition: left .35s ease;
-  z-index: 20;
-}
+    /* Sidebar */
+    .sidebar{
+      width: 290px;
+      position:absolute;
+      left:-290px;
+      top:0; bottom:0;
+      z-index:20;
 
-body.light .sidebar {
-  background: rgba(255,255,255,0.95);
-}
+      background: linear-gradient(180deg, rgba(2,6,23,0.72), rgba(2,6,23,0.55));
+      border-right: 1px solid var(--border);
+      backdrop-filter: blur(18px);
+      box-shadow: var(--shadow2);
 
-.sidebar.show { left: 0; }
+      display:flex;
+      flex-direction:column;
+      transition: left .32s ease;
+    }
+    body.light .sidebar{
+      background: linear-gradient(180deg, rgba(255,255,255,0.82), rgba(255,255,255,0.62));
+    }
+    .sidebar.show{ left:0; }
 
-.sidebar-header {
-  padding: 14px 16px;
-  display: flex;
-  justify-content: space-between;
-  border-bottom: 1px solid rgba(148,163,184,0.4);
-  font-weight: 600;
-}
+    .sidebar-header{
+      padding: 14px 14px 12px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      border-bottom: 1px solid var(--border);
+      gap:10px;
+    }
+    .sidebar-title{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+    }
+    .sidebar-title .t1{
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .pill{
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      background: rgba(255,255,255,0.04);
+      width: fit-content;
+    }
+    body.light .pill{ background: rgba(15,23,42,0.03); }
 
-.sidebar-body {
-  padding: 12px;
-  font-size: 13px;
-  overflow-y: auto;
-}
+    .sidebar-clear{
+      cursor:pointer;
+      font-size: 12px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      color: var(--muted);
+      user-select:none;
+      transition: transform .12s ease, border-color .12s ease;
+    }
+    .sidebar-clear:hover{
+      transform: translateY(-1px);
+      border-color: rgba(34,211,238,0.35);
+    }
 
-.sidebar-item {
-  padding: 6px 8px;
-  border-radius: 8px;
-  margin-bottom: 6px;
-  background: rgba(56,189,248,0.08);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+    .sidebar-body{
+      flex:1;
+      overflow-y:auto;
+      padding: 12px 12px 16px;
+    }
 
-/* ===== Main App ===== */
-.app {
-  flex: 1;
-  margin: 16px;
-  border-radius: 24px;
-  background: var(--glass-dark);
-  backdrop-filter: blur(28px);
-  box-shadow:
-    0 0 0 1px rgba(56,189,248,0.25),
-    0 30px 80px rgba(0,0,0,0.7);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  transition: .35s ease;
-}
+    .sidebar-item{
+      padding: 10px 10px;
+      border-radius: 14px;
+      margin-bottom: 8px;
+      border: 1px solid rgba(148,163,184,0.18);
+      background: rgba(15,23,42,0.28);
+      color: var(--text);
+      font-size: 12.5px;
+      line-height: 1.35;
+      white-space: nowrap;
+      overflow:hidden;
+      text-overflow: ellipsis;
+      cursor: default;
+      transition: transform .12s ease, border-color .12s ease, background .12s ease;
+    }
+    body.light .sidebar-item{ background: rgba(15,23,42,0.04); }
+    .sidebar-item:hover{
+      transform: translateY(-1px);
+      border-color: rgba(167,139,250,0.35);
+      background: rgba(15,23,42,0.34);
+    }
+    body.light .sidebar-item:hover{ background: rgba(15,23,42,0.06); }
 
-body.light .app {
-  background: var(--glass-light);
-  box-shadow:
-    0 0 0 1px rgba(99,102,241,0.25),
-    0 24px 60px rgba(15,23,42,0.25);
-}
+    /* Main App */
+    .app{
+      flex:1;
+      margin: 16px;
+      border-radius: var(--radius);
+      overflow:hidden;
+      background: linear-gradient(180deg, rgba(15,23,42,0.76), rgba(15,23,42,0.56));
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(22px);
+      display:flex;
+      flex-direction:column;
+      transition: margin-left .32s ease;
+      position:relative;
+    }
+    body.light .app{
+      background: linear-gradient(180deg, rgba(255,255,255,0.76), rgba(255,255,255,0.56));
+    }
+    .app.shift{ margin-left: 306px; }
 
-.app.shift { margin-left: 276px; }
+    /* Subtle neon frame */
+    .app::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      border-radius: var(--radius);
+      padding: 1px;
+      background: linear-gradient(135deg,
+        rgba(34,211,238,0.35),
+        rgba(167,139,250,0.22),
+        rgba(96,165,250,0.22)
+      );
+      -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+              mask-composite: exclude;
+      opacity: 0.8;
+    }
 
-/* ===== Header ===== */
-.header {
-  padding: 14px 18px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid rgba(148,163,184,0.4);
-}
+    /* Header (AI Lab Mode) */
+    .header{
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+    }
+    .brand{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+      min-width: 0;
+    }
+    .brand .title{
+      font-weight: 800;
+      letter-spacing: 0.3px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .dot{
+      width: 8px; height:8px;
+      border-radius:999px;
+      background: rgba(34,211,238,0.9);
+      box-shadow: 0 0 0 3px rgba(34,211,238,0.12), 0 0 18px rgba(34,211,238,0.45);
+      flex: 0 0 auto;
+    }
+    .brand .sub{
+      font-size: 12px;
+      color: var(--muted);
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.22);
+      background: rgba(255,255,255,0.03);
+    }
+    body.light .badge{ background: rgba(15,23,42,0.03); }
 
-.header-right span {
-  cursor: pointer;
-  margin-left: 12px;
-  filter: drop-shadow(0 0 6px rgba(56,189,248,0.4));
-}
+    .header-right{
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .toggle{
+      cursor:pointer;
+      user-select:none;
+      width: 38px;
+      height: 38px;
+      display:grid;
+      place-items:center;
+      border-radius: 14px;
+      border: 1px solid rgba(148,163,184,0.22);
+      background: rgba(255,255,255,0.03);
+      transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease;
+      font-size: 18px;
+    }
+    body.light .toggle{ background: rgba(15,23,42,0.03); }
+    .toggle:hover{
+      transform: translateY(-1px);
+      border-color: rgba(34,211,238,0.35);
+      box-shadow: 0 0 0 4px rgba(34,211,238,0.08);
+    }
+    .toggle.voice-on{
+      border-color: rgba(34,211,238,0.45);
+      box-shadow: 0 0 0 4px rgba(34,211,238,0.12), 0 0 18px rgba(34,211,238,0.16);
+    }
 
-/* ===== Chat ===== */
-.chat {
-  flex: 1;
-  padding: 18px;
-  overflow-y: auto;
-}
+    /* Chat area */
+    .chat{
+      flex:1;
+      padding: 18px 18px 8px;
+      overflow-y:auto;
+      -webkit-overflow-scrolling: touch;
+      position:relative;
+    }
 
-.message {
-  display: flex;
-  margin-bottom: 12px;
-}
+    .message{
+      display:flex;
+      margin-bottom: 12px;
+      animation: pop .18s ease;
+    }
+    @keyframes pop{
+      from{ opacity:0; transform: translateY(4px); }
+      to{ opacity:1; transform:none; }
+    }
 
-.user { justify-content: flex-end; }
-.assistant { justify-content: flex-start; }
+    .user{ justify-content:flex-end; }
+    .assistant{ justify-content:flex-start; }
 
-.bubble {
-  max-width: 78%;
-  padding: 10px 14px;
-  border-radius: 18px;
-  line-height: 1.6;
-  white-space: pre-wrap;
-  animation: breathe 4s infinite;
-}
+    .bubble{
+      max-width: 78%;
+      padding: 12px 14px;
+      border-radius: 18px;
+      line-height: 1.65;
+      font-size: 14px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      position:relative;
+      border: 1px solid rgba(148,163,184,0.18);
+      background: rgba(15,23,42,0.35);
+    }
 
-.user .bubble {
-  background: var(--user-bubble);
-  color: white;
-  border-bottom-right-radius: 6px;
-}
+    .user .bubble{
+      background: var(--userGrad);
+      color: #fff;
+      border-bottom-right-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.14);
+      box-shadow: 0 14px 36px rgba(37,99,235,0.18);
+    }
 
-.assistant .bubble {
-  background: var(--ai-bubble-dark);
-  color: var(--text-dark);
-  border-bottom-left-radius: 6px;
-  box-shadow: 0 0 0 1px rgba(56,189,248,0.25);
-}
+    .assistant .bubble{
+      background: var(--aiBg);
+      color: var(--text);
+      border-bottom-left-radius: 8px;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.22);
+    }
 
-body.light .assistant .bubble {
-  background: var(--ai-bubble-light);
-  color: var(--text-light);
-}
+    .bubble .tag{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 6px;
+      opacity: 0.85;
+    }
+    .tag .miniDot{
+      width:6px;height:6px;border-radius:999px;
+      background: rgba(167,139,250,0.9);
+      box-shadow: 0 0 0 3px rgba(167,139,250,0.10);
+    }
 
-.thinking {
-  opacity: 0.65;
-  font-style: italic;
-  animation: blink 1.6s infinite;
-}
+    .thinking{
+      opacity: 0.78;
+      font-style: italic;
+      border-color: rgba(34,211,238,0.22) !important;
+      box-shadow: 0 0 0 4px rgba(34,211,238,0.07);
+      animation: blink 1.6s ease-in-out infinite;
+    }
+    @keyframes blink{
+      0%,100%{ opacity:0.55; }
+      50%{ opacity:0.95; }
+    }
 
-.thumb {
-  margin-top: 6px;
-  max-width: 160px;
-  border-radius: 12px;
-}
+    .thumb{
+      margin-top: 8px;
+      border-radius: 14px;
+      max-width: 180px;
+      display:block;
+      border: 1px solid rgba(148,163,184,0.25);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.22);
+    }
+    .meta{
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 8px;
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
 
-@keyframes breathe {
-  0%,100% { box-shadow: 0 0 0 rgba(0,0,0,0); }
-  50% { box-shadow: 0 0 16px rgba(56,189,248,0.15); }
-}
+    /* Footer */
+    .footer{
+      padding: 12px 14px 14px;
+      border-top: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.00));
+    }
+    body.light .footer{
+      background: linear-gradient(180deg, rgba(15,23,42,0.02), rgba(15,23,42,0.00));
+    }
 
-@keyframes blink {
-  0% { opacity:.3 } 50% { opacity:1 } 100% { opacity:.3 }
-}
+    .input-row{
+      display:flex;
+      gap:10px;
+      align-items:center;
+    }
+    .file-label{
+      width: 44px;
+      height: 44px;
+      border-radius: 16px;
+      display:grid;
+      place-items:center;
+      cursor:pointer;
+      border: 1px solid rgba(148,163,184,0.22);
+      background: rgba(255,255,255,0.03);
+      transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease;
+      user-select:none;
+    }
+    body.light .file-label{ background: rgba(15,23,42,0.03); }
+    .file-label:hover{
+      transform: translateY(-1px);
+      border-color: rgba(167,139,250,0.35);
+      box-shadow: 0 0 0 4px rgba(167,139,250,0.08);
+    }
+    input[type="file"]{ display:none; }
 
-/* ===== Footer ===== */
-.footer {
-  padding: 12px 14px;
-  border-top: 1px solid rgba(148,163,184,0.4);
-}
+    textarea{
+      flex:1;
+      resize:none;
+      padding: 12px 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(148,163,184,0.22);
+      outline:none;
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--text);
+      background: rgba(2,6,23,0.30);
+      backdrop-filter: blur(12px);
+      transition: border-color .12s ease, box-shadow .12s ease;
+    }
+    body.light textarea{
+      background: rgba(255,255,255,0.72);
+    }
+    textarea:focus{
+      border-color: rgba(34,211,238,0.40);
+      box-shadow: 0 0 0 4px rgba(34,211,238,0.10);
+    }
 
-.input-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
+    .controls{
+      display:flex;
+      gap:10px;
+      margin-top: 10px;
+    }
 
-textarea {
-  flex: 1;
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: none;
-  resize: none;
-  background: rgba(15,23,42,0.9);
-  color: var(--text-dark);
-}
+    button{
+      flex:1;
+      padding: 12px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.18);
+      color: #fff;
+      font-weight: 800;
+      letter-spacing: .3px;
+      cursor:pointer;
+      background: linear-gradient(135deg, rgba(59,130,246,0.95), rgba(37,99,235,0.95));
+      box-shadow: 0 14px 34px rgba(37,99,235,0.22);
+      transition: transform .12s ease, box-shadow .12s ease, opacity .12s ease;
+    }
+    button:hover{
+      transform: translateY(-1px);
+      box-shadow: 0 16px 40px rgba(37,99,235,0.28);
+    }
+    button:disabled{
+      opacity: 0.55;
+      cursor:not-allowed;
+      transform:none;
+      box-shadow:none;
+    }
 
-body.light textarea {
-  background: #f9fafb;
-  color: #0f172a;
-}
-
-button {
-  padding: 10px;
-  border-radius: 999px;
-  border: none;
-  background: #2563eb;
-  color: white;
-  font-weight: 600;
-  cursor: pointer;
-}
-</style>
+    /* Mobile */
+    @media (max-width: 768px){
+      .app{ margin: 10px; border-radius: 18px; }
+      .app.shift{ margin-left: 10px; } /* sidebar 覆蓋 */
+      .sidebar{
+        width: 86%;
+        left: -86%;
+      }
+      .sidebar.show{ left:0; }
+    }
+  </style>
 </head>
 
 <body>
 <div class="wrapper">
-
-<!-- Sidebar -->
-<aside id="sidebar" class="sidebar">
-  <div class="sidebar-header">
-    <span>📜 聊天記錄</span>
-    <span id="clearHistory">清除</span>
-  </div>
-  <div id="historyList" class="sidebar-body"></div>
-</aside>
-
-<!-- App -->
-<main id="app" class="app">
-  <header class="header">
-    <span>✨ AI 助理</span>
-    <div class="header-right">
-      <span id="historyBtn">📜</span>
-      <span id="themeBtn">🌓</span>
-      <span id="voiceBtn">🔈</span>
+  <!-- Sidebar -->
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">
+        <div class="t1">Session Log <span class="pill">localStorage</span></div>
+        <div class="pill">AI Lab Mode · Calm Cyber</div>
+      </div>
+      <div id="clearHistory" class="sidebar-clear" title="清除聊天記錄">清除</div>
     </div>
-  </header>
+    <div id="historyList" class="sidebar-body"></div>
+  </aside>
 
-  <section id="chat" class="chat"></section>
+  <!-- Main -->
+  <main id="app" class="app">
+    <header class="header">
+      <div class="brand">
+        <div class="title"><span class="dot"></span> AI Assistant · Lab</div>
+        <div class="sub">
+          <span class="badge">MODEL: Gemini 2.5 Flash</span>
+          <span class="badge">STATUS: Online</span>
+        </div>
+      </div>
 
-  <footer class="footer">
-    <div class="input-row">
-      <label>📎<input type="file" id="fileInput" accept="image/*,.pdf" hidden></label>
-      <textarea id="input" rows="2" placeholder="輸入訊息…"></textarea>
-    </div>
-    <div class="input-row">
-      <button id="mic">🎤</button>
-      <button id="send">送出</button>
-    </div>
-  </footer>
-</main>
+      <div class="header-right">
+        <div id="historyBtn" class="toggle" title="Session Log">☰</div>
+        <div id="themeBtn" class="toggle" title="深色 / 亮色">🌓</div>
+        <div id="voiceBtn" class="toggle" title="語音朗讀（預設關閉）">🔇</div>
+      </div>
+    </header>
+
+    <section id="chat" class="chat"></section>
+
+    <footer class="footer">
+      <div class="input-row">
+        <label class="file-label" title="上傳圖片 / PDF">
+          📎
+          <input type="file" id="fileInput" accept="image/*,.pdf,application/pdf" />
+        </label>
+        <textarea id="input" rows="2" placeholder="輸入文字或用語音…（支援圖片/PDF）"></textarea>
+      </div>
+      <div class="controls">
+        <button id="mic" type="button">🎤 語音輸入</button>
+        <button id="send" type="button">送出</button>
+      </div>
+    </footer>
+  </main>
 </div>
 
 <script>
-/* ===============================
-   🔧 Logic (unchanged)
-================================ */
-const BASE_URL = "https://schedule-bot-production-32ae.up.railway.app";
+  // 👉 記得改成你自己的 Railway URL
+  const BASE_URL = "https://schedule-bot-production-32ae.up.railway.app";
 
-const chatEl = document.getElementById("chat");
-const inputEl = document.getElementById("input");
-const fileInput = document.getElementById("fileInput");
-const sendBtn = document.getElementById("send");
-const micBtn = document.getElementById("mic");
+  const chatEl = document.getElementById("chat");
+  const inputEl = document.getElementById("input");
+  const fileInput = document.getElementById("fileInput");
 
-const themeBtn = document.getElementById("themeBtn");
-const historyBtn = document.getElementById("historyBtn");
-const voiceBtn = document.getElementById("voiceBtn");
+  const sendBtn = document.getElementById("send");
+  const micBtn = document.getElementById("mic");
 
-const sidebar = document.getElementById("sidebar");
-const appEl = document.getElementById("app");
-const historyList = document.getElementById("historyList");
-const clearHistoryBtn = document.getElementById("clearHistory");
+  const themeBtn = document.getElementById("themeBtn");
+  const voiceBtn = document.getElementById("voiceBtn");
+  const historyBtn = document.getElementById("historyBtn");
 
-/* Theme */
-if (localStorage.getItem("theme") === "light") document.body.classList.add("light");
-themeBtn.onclick = () => {
-  document.body.classList.toggle("light");
-  localStorage.setItem("theme", document.body.classList.contains("light") ? "light" : "dark");
-};
+  const sidebar = document.getElementById("sidebar");
+  const appEl = document.getElementById("app");
+  const historyList = document.getElementById("historyList");
+  const clearHistoryBtn = document.getElementById("clearHistory");
 
-/* Sidebar */
-historyBtn.onclick = () => {
-  sidebar.classList.toggle("show");
-  appEl.classList.toggle("shift");
-};
-
-clearHistoryBtn.onclick = () => {
-  if (confirm("清除聊天記錄？")) {
-    localStorage.removeItem("chat_history");
-    chatEl.innerHTML = "";
-    historyList.innerHTML = "";
+  /* =========================
+     Theme (保留功能)
+  ========================= */
+  if (localStorage.getItem("theme") === "light") {
+    document.body.classList.add("light");
   }
-};
+  themeBtn.onclick = () => {
+    document.body.classList.toggle("light");
+    localStorage.setItem("theme", document.body.classList.contains("light") ? "light" : "dark");
+  };
 
-/* Voice */
-let voiceEnabled = false;
-voiceBtn.onclick = () => {
-  voiceEnabled = !voiceEnabled;
-  voiceBtn.textContent = voiceEnabled ? "🔇" : "🔈";
-};
+  /* =========================
+     Sidebar (保留功能)
+  ========================= */
+  historyBtn.onclick = () => {
+    sidebar.classList.toggle("show");
+    appEl.classList.toggle("shift");
+  };
 
-/* Speech Input */
-const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-const recog = SR ? new SR() : null;
-if (recog) {
-  recog.lang = "zh-TW";
-  micBtn.onclick = () => recog.start();
-  recog.onresult = e => inputEl.value = e.results[0][0].transcript;
-}
+  clearHistoryBtn.onclick = () => {
+    if (!confirm("確定要清除所有聊天記錄嗎？")) return;
+    localStorage.removeItem("chat_history");
+    historyList.innerHTML = "";
+    chatEl.innerHTML = "";
+  };
 
-/* History Load */
-const historyData = JSON.parse(localStorage.getItem("chat_history") || "[]");
-historyData.forEach(m => {
-  renderMessage(m.role, m.text);
-  addHistoryLine(m);
-});
+  /* =========================
+     Voice TTS (模式 A：預設關閉，只按🔈才唸)
+     ✅ 會存 localStorage
+     ✅ 關閉時會 stop speak
+  ========================= */
+  let voiceEnabled = JSON.parse(localStorage.getItem("voice_enabled") || "false"); // ✅ 預設 false
+  function syncVoiceUI(){
+    voiceBtn.textContent = voiceEnabled ? "🔈" : "🔇";
+    voiceBtn.classList.toggle("voice-on", voiceEnabled);
+    voiceBtn.title = voiceEnabled ? "語音朗讀：開" : "語音朗讀：關（預設）";
+  }
+  syncVoiceUI();
 
-/* Send */
-sendBtn.onclick = async () => {
-  const text = inputEl.value.trim();
-  const file = fileInput.files[0];
-  if (!text && !file) return;
-
-  renderMessage("user", text || `[檔案] ${file?.name || ""}`);
-  saveHistory({ role: "user", text: text || `[檔案] ${file?.name}` });
-
-  inputEl.value = "";
-  const thinking = renderMessage("assistant", "… 正在思考中", true);
-
-  const form = new FormData();
-  form.append("message", text);
-  if (file) form.append("image", file);
-
-  const res = await fetch(`${BASE_URL}/chat`, { method: "POST", body: form });
-  const data = await res.json();
-
-  thinking.parentElement.remove();
-  typeWriter(data.reply);
-  fileInput.value = "";
-};
-
-/* Render */
-function renderMessage(role, text, thinking=false) {
-  const row = document.createElement("div");
-  row.className = `message ${role}`;
-  const bubble = document.createElement("div");
-  bubble.className = "bubble";
-  if (thinking) bubble.classList.add("thinking");
-  bubble.textContent = text;
-  row.appendChild(bubble);
-  chatEl.appendChild(row);
-  chatEl.scrollTop = chatEl.scrollHeight;
-  return bubble;
-}
-
-function typeWriter(text) {
-  let i = 0;
-  const bubble = renderMessage("assistant", "");
-  const timer = setInterval(() => {
-    bubble.textContent += text[i++] || "";
-    chatEl.scrollTop = chatEl.scrollHeight;
-    if (i >= text.length) {
-      clearInterval(timer);
-      if (voiceEnabled) speak(text);
-      saveHistory({ role: "assistant", text });
+  voiceBtn.onclick = () => {
+    voiceEnabled = !voiceEnabled;
+    localStorage.setItem("voice_enabled", JSON.stringify(voiceEnabled));
+    if (!voiceEnabled && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
     }
-  }, 18);
-}
+    syncVoiceUI();
+  };
 
-function addHistoryLine({ role, text }) {
-  const div = document.createElement("div");
-  div.className = "sidebar-item";
-  div.textContent = `${role === "user" ? "🧑‍💻" : "🤖"} ${text}`;
-  historyList.appendChild(div);
-}
+  /* =========================
+     Speech Recognition (語音輸入)
+  ========================= */
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const recog = SR ? new SR() : null;
 
-function saveHistory(entry) {
-  const list = JSON.parse(localStorage.getItem("chat_history") || "[]");
-  list.push(entry);
-  localStorage.setItem("chat_history", JSON.stringify(list));
-  addHistoryLine(entry);
-}
+  if (recog) {
+    recog.lang = "zh-TW";
+    micBtn.onclick = () => recog.start();
+    recog.onresult = e => {
+      inputEl.value = e.results[0][0].transcript;
+    };
+  } else {
+    micBtn.disabled = true;
+    micBtn.textContent = "🎤 此瀏覽器不支援語音輸入";
+  }
 
-function speak(text) {
-  if (!window.speechSynthesis) return;
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = "zh-TW";
-  speechSynthesis.speak(u);
-}
+  /* =========================
+     Load history (保留功能)
+  ========================= */
+  const historyData = JSON.parse(localStorage.getItem("chat_history") || "[]");
+  historyData.forEach(m => {
+    renderMessage(m.role, m.text);
+    addHistoryLine(m);
+  });
+
+  /* =========================
+     Send message (圖片 / PDF 仍用 image 參數名，不破壞後端)
+  ========================= */
+  sendBtn.onclick = async () => {
+    const text = inputEl.value.trim();
+    const file = fileInput.files[0];
+
+    if (!text && !file) return;
+
+    const preview = (file && file.type && file.type.startsWith("image/"))
+      ? URL.createObjectURL(file)
+      : null;
+
+    // UI: user message
+    const userLabel = text || (file ? `🗂 上傳檔案：${file.name}` : "");
+    renderMessage("user", userLabel, { imageUrl: preview });
+
+    // history
+    saveHistory({ role: "user", text: text || (file ? `[檔案] ${file.name}` : "") });
+
+    inputEl.value = "";
+    const thinkingBubble = renderMessage("assistant", "… 正在思考中", { thinking: true });
+
+    const startTime = performance.now();
+
+    try {
+      const form = new FormData();
+      form.append("message", text);
+      if (file) form.append("image", file); // ✅ 後端仍叫 image（可為圖片或 PDF）
+
+      const res = await fetch(`${BASE_URL}/chat`, { method: "POST", body: form });
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(err || res.statusText);
+      }
+
+      const data = await res.json();
+      const replyText = (data && data.reply) ? data.reply : "";
+
+      const cost = ((performance.now() - startTime) / 1000).toFixed(2);
+
+      // remove thinking
+      thinkingBubble.parentElement.remove();
+
+      // AI tag + typewriter + meta
+      typeWriter(replyText, cost);
+
+    } catch (e) {
+      console.error(e);
+      thinkingBubble.textContent = "❌ 連線失敗，請稍後再試";
+    } finally {
+      fileInput.value = "";
+    }
+  };
+
+  /* =========================
+     Render
+  ========================= */
+  function renderMessage(role, text, options = {}) {
+    const { imageUrl = null, thinking = false, tag = null } = options;
+
+    const row = document.createElement("div");
+    row.className = `message ${role}`;
+
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    if (thinking) bubble.classList.add("thinking");
+
+    // optional tag (AI)
+    if (tag) {
+      const t = document.createElement("div");
+      t.className = "tag";
+      t.innerHTML = `<span class="miniDot"></span> ${tag}`;
+      bubble.appendChild(t);
+    }
+
+    const textNode = document.createElement("div");
+    textNode.textContent = text;
+    bubble.appendChild(textNode);
+
+    if (imageUrl) {
+      const img = document.createElement("img");
+      img.src = imageUrl;
+      img.className = "thumb";
+      bubble.appendChild(img);
+    }
+
+    row.appendChild(bubble);
+    chatEl.appendChild(row);
+    chatEl.scrollTop = chatEl.scrollHeight;
+    return bubble;
+  }
+
+  function typeWriter(text, seconds) {
+    let i = 0;
+
+    const bubble = renderMessage("assistant", "", { tag: "AI · Reasoned Response" });
+
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    meta.textContent = `⏱ 回覆時間約 ${seconds}s`;
+
+    // typing
+    const timer = setInterval(() => {
+      // bubble 的第二個 child 是文字容器（tag + textDiv）
+      const textDiv = bubble.children[1];
+      textDiv.textContent += text[i++] || "";
+
+      chatEl.scrollTop = chatEl.scrollHeight;
+
+      if (i >= text.length) {
+        clearInterval(timer);
+        bubble.appendChild(meta);
+
+        if (voiceEnabled) speak(text);
+        saveHistory({ role: "assistant", text });
+      }
+    }, 16);
+  }
+
+  /* =========================
+     Sidebar history
+  ========================= */
+  function addHistoryLine({ role, text }) {
+    const div = document.createElement("div");
+    div.className = "sidebar-item";
+    const prefix = role === "user" ? "USER" : "AI";
+    div.textContent = `${prefix} · ${text}`;
+    historyList.appendChild(div);
+  }
+
+  function saveHistory(entry) {
+    const list = JSON.parse(localStorage.getItem("chat_history") || "[]");
+    list.push(entry);
+    localStorage.setItem("chat_history", JSON.stringify(list));
+    addHistoryLine(entry);
+  }
+
+  /* =========================
+     TTS
+  ========================= */
+  function speak(text) {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel(); // 避免疊音
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "zh-TW";
+    window.speechSynthesis.speak(u);
+  }
 </script>
 </body>
 </html>
