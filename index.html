@@ -6,312 +6,276 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <style>
-/* =========================
-   🎨 Cyber Theme Tokens
-========================= */
 :root {
   --neon: #38bdf8;
-  --neon-soft: rgba(56,189,248,.35);
-  --purple: #818cf8;
-
+  --neon-purple: #818cf8;
   --bg-dark: radial-gradient(circle at top, #020617, #000);
-  --bg-light: linear-gradient(135deg, #f8fafc, #e5e7eb);
-
-  --glass-dark: rgba(10,10,20,.82);
+  --bg-light: radial-gradient(circle at top, #ffffff, #e5e7eb);
+  --glass-dark: rgba(2,6,23,.88);
   --glass-light: rgba(255,255,255,.92);
-
-  --user-bubble: linear-gradient(135deg, #3b82f6, #6366f1);
-  --ai-dark: rgba(15,23,42,.96);
-  --ai-light: #ffffff;
-
   --text-dark: #e5e7eb;
-  --text-light: #0f172a;
+  --text-light: #020617;
 }
 
-/* ========================= */
 * { box-sizing: border-box; }
+
 body {
   margin: 0;
   height: 100vh;
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: "JetBrains Mono", system-ui, monospace;
   background: var(--bg-dark);
   color: var(--text-dark);
   overflow: hidden;
 }
+
 body.light {
   background: var(--bg-light);
   color: var(--text-light);
 }
 
-/* =========================
-   🌌 Subtle Cyber Overlay
-========================= */
-body::after {
+/* ===== 背景能量線 ===== */
+body::before {
   content:"";
-  position:fixed;
-  inset:0;
-  pointer-events:none;
+  position: fixed;
+  inset: 0;
   background:
     repeating-linear-gradient(
       to bottom,
-      rgba(255,255,255,.02),
-      rgba(255,255,255,.02) 1px,
+      rgba(56,189,248,.05),
+      rgba(56,189,248,.05) 1px,
       transparent 2px,
-      transparent 4px
+      transparent 6px
     );
-  opacity:.4;
+  pointer-events:none;
+  animation: scan 8s linear infinite;
 }
 
-/* =========================
-   Layout
-========================= */
+@keyframes scan {
+  from { background-position-y: -200px; }
+  to   { background-position-y: 200px; }
+}
+
+/* ===== Layout ===== */
 .wrapper {
-  width:100%;
-  height:100%;
-  display:flex;
-  position:relative;
+  display: flex;
+  width: 100%;
+  height: 100%;
 }
 
-/* =========================
-   📜 Sidebar
-========================= */
+/* ===== Sidebar ===== */
 .sidebar {
-  width:260px;
-  position:absolute;
-  inset:0 auto 0 0;
+  width: 260px;
+  position: absolute;
+  inset: 0 auto 0 0;
   transform: translateX(-100%);
-  transition:.35s ease;
   background: linear-gradient(
     to bottom,
-    rgba(2,6,23,.96),
-    rgba(2,6,23,.88)
-  );
-  backdrop-filter: blur(18px);
-  border-right:1px solid rgba(148,163,184,.25);
-  z-index:20;
-  display:flex;
-  flex-direction:column;
+    rgba(56,189,248,.15),
+    transparent
+  ), var(--glass-dark);
+  backdrop-filter: blur(24px);
+  border-right: 1px solid rgba(56,189,248,.4);
+  transition: .35s ease;
+  z-index: 20;
 }
+
 body.light .sidebar {
-  background: rgba(255,255,255,.95);
+  background: var(--glass-light);
 }
-.sidebar.show { transform: translateX(0); }
+
+.sidebar.show {
+  transform: translateX(0);
+}
 
 .sidebar-header {
-  padding:14px 16px;
+  padding: 14px 16px;
+  font-weight: 600;
   display:flex;
   justify-content:space-between;
-  align-items:center;
-  font-weight:600;
-  border-bottom:1px solid rgba(148,163,184,.25);
+  border-bottom: 1px solid rgba(56,189,248,.35);
 }
+
 .sidebar-body {
-  flex:1;
-  overflow:auto;
-  padding:10px;
+  padding: 12px;
+  font-size: 13px;
+  overflow-y:auto;
 }
+
 .sidebar-item {
-  font-size:13px;
-  padding:6px 8px;
-  border-radius:6px;
-  margin-bottom:4px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  margin-bottom: 4px;
   background: rgba(56,189,248,.08);
-  white-space:nowrap;
+  white-space: nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
 }
 
-/* =========================
-   💬 Main App
-========================= */
+/* ===== App ===== */
 .app {
   flex:1;
-  margin:14px;
-  border-radius:22px;
+  margin: 16px;
+  border-radius: 20px;
   background: var(--glass-dark);
-  backdrop-filter: blur(26px);
+  backdrop-filter: blur(30px);
   box-shadow:
-    0 0 0 1px rgba(56,189,248,.15),
-    0 30px 80px rgba(0,0,0,.7);
+    0 0 0 1px rgba(56,189,248,.35),
+    0 0 40px rgba(56,189,248,.15);
   display:flex;
   flex-direction:column;
-  overflow:hidden;
   transition:.35s ease;
 }
+
 body.light .app {
   background: var(--glass-light);
 }
+
 .app.shift {
-  margin-left:276px;
+  margin-left: 276px;
 }
 
-/* =========================
-   Header
-========================= */
+/* ===== Header ===== */
 .header {
-  padding:14px 18px;
+  padding: 14px 18px;
   display:flex;
   justify-content:space-between;
   align-items:center;
-  border-bottom:1px solid rgba(148,163,184,.25);
-}
-.header span {
-  font-weight:600;
-  letter-spacing:.5px;
-}
-.header-right {
-  display:flex;
-  gap:14px;
-}
-.toggle {
-  cursor:pointer;
-  font-size:18px;
-  opacity:.85;
-  transition:.2s;
-}
-.toggle:hover {
-  opacity:1;
-  color: var(--neon);
+  border-bottom: 1px solid rgba(56,189,248,.35);
 }
 
-/* =========================
-   Chat
-========================= */
+.header-right span {
+  cursor:pointer;
+  margin-left:10px;
+  filter: drop-shadow(0 0 4px var(--neon));
+}
+
+/* ===== Chat ===== */
 .chat {
   flex:1;
-  padding:18px;
-  overflow:auto;
+  padding: 18px;
+  overflow-y:auto;
 }
+
 .message {
   display:flex;
-  margin-bottom:10px;
+  margin-bottom:12px;
 }
+
 .user { justify-content:flex-end; }
 .assistant { justify-content:flex-start; }
 
 .bubble {
-  max-width:78%;
-  padding:10px 14px;
-  border-radius:18px;
-  font-size:14px;
+  max-width: 78%;
+  padding: 12px 14px;
+  border-radius: 16px;
   line-height:1.6;
-  white-space:pre-wrap;
-  box-shadow: 0 0 0 1px rgba(255,255,255,.04);
+  background: rgba(56,189,248,.08);
+  border: 1px solid rgba(56,189,248,.35);
+  box-shadow: 0 0 12px rgba(56,189,248,.25);
 }
+
 .user .bubble {
-  background: var(--user-bubble);
-  color:#fff;
-  border-bottom-right-radius:6px;
-}
-.assistant .bubble {
-  background: var(--ai-dark);
-}
-body.light .assistant .bubble {
-  background: var(--ai-light);
+  background: linear-gradient(135deg, #2563eb, #38bdf8);
+  color:white;
 }
 
 .thinking {
-  opacity:.65;
+  opacity:.7;
   font-style:italic;
 }
-.thumb {
-  margin-top:6px;
-  max-width:160px;
-  border-radius:10px;
+
+/* ===== Footer ===== */
+.footer {
+  padding: 12px 14px;
+  border-top:1px solid rgba(56,189,248,.35);
 }
 
-/* =========================
-   Input
-========================= */
-.footer {
-  padding:12px 14px;
-  border-top:1px solid rgba(148,163,184,.25);
-}
-.input-row {
-  display:flex;
-  gap:8px;
-}
 textarea {
-  flex:1;
+  width:100%;
   resize:none;
-  padding:10px 12px;
+  padding:10px;
   border-radius:12px;
   border:none;
-  outline:none;
   background: rgba(2,6,23,.9);
-  color: var(--text-dark);
+  color:white;
 }
+
 body.light textarea {
   background:#f9fafb;
-  color: var(--text-light);
+  color:#020617;
 }
-.controls {
-  display:flex;
-  gap:8px;
-  margin-top:6px;
-}
+
 button {
-  flex:1;
-  border:none;
+  margin-top:6px;
   padding:10px;
   border-radius:999px;
-  background: linear-gradient(135deg, #2563eb, #6366f1);
+  border:none;
+  background: linear-gradient(135deg, #38bdf8, #818cf8);
   color:white;
   font-weight:600;
   cursor:pointer;
 }
-
-/* ========================= */
 </style>
 </head>
 
 <body>
 <div class="wrapper">
 
-<!-- ===== Sidebar ===== -->
 <aside id="sidebar" class="sidebar">
   <div class="sidebar-header">
-    <span>📜 History</span>
-    <span id="clearHistory" style="cursor:pointer">清除</span>
+    <span>📜 記錄</span>
+    <span id="clearHistory">清除</span>
   </div>
   <div id="historyList" class="sidebar-body"></div>
 </aside>
 
-<!-- ===== App ===== -->
 <main id="app" class="app">
-  <header class="header">
-    <span>✨ AI 助理</span>
-    <div class="header-right">
-      <span id="historyBtn" class="toggle">📜</span>
-      <span id="themeBtn" class="toggle">🌓</span>
-      <span id="voiceBtn" class="toggle">🔈</span>
-    </div>
-  </header>
+<header class="header">
+  <span>⚡ AI CORE</span>
+  <div class="header-right">
+    <span id="historyBtn">📜</span>
+    <span id="themeBtn">🌓</span>
+    <span id="voiceBtn">🔈</span>
+  </div>
+</header>
 
-  <section id="chat" class="chat"></section>
+<section id="chat" class="chat"></section>
 
-  <footer class="footer">
-    <div class="input-row">
-      <label>📎 <input id="fileInput" type="file" accept="image/*,.pdf" hidden></label>
-      <textarea id="input" rows="2" placeholder="輸入文字或語音…"></textarea>
-    </div>
-    <div class="controls">
-      <button id="mic">🎤</button>
-      <button id="send">送出</button>
-    </div>
-  </footer>
+<footer class="footer">
+  <input type="file" id="fileInput" accept="image/*,.pdf">
+  <textarea id="input" rows="2" placeholder="輸入訊息…"></textarea>
+  <button id="send">送出</button>
+</footer>
 </main>
 </div>
 
-<!-- =========================
-     JS（原功能完整保留）
-========================= -->
 <script>
-/* ⚠️ 這段 JS = 你原本的版本（完全不動邏輯） */
 const BASE_URL = "https://schedule-bot-production-32ae.up.railway.app";
 
-/* （以下 JS 與你原本一致，未刪任何功能） */
-// —— 為避免超長，我下一則可以幫你「確認 JS 完整性對照表」
+/* === 狀態 === */
+let voiceEnabled = false;
+
+/* === 主題 === */
+const themeBtn = document.getElementById("themeBtn");
+if (localStorage.theme === "light") document.body.classList.add("light");
+themeBtn.onclick = () => {
+  document.body.classList.toggle("light");
+  localStorage.theme = document.body.classList.contains("light") ? "light" : "dark";
+};
+
+/* === 側欄 === */
+const sidebar = document.getElementById("sidebar");
+document.getElementById("historyBtn").onclick = () => {
+  sidebar.classList.toggle("show");
+  document.getElementById("app").classList.toggle("shift");
+};
+
+/* === 語音 === */
+const voiceBtn = document.getElementById("voiceBtn");
+voiceBtn.onclick = () => {
+  voiceEnabled = !voiceEnabled;
+  voiceBtn.textContent = voiceEnabled ? "🔇" : "🔈";
+};
 </script>
 </body>
 </html>
