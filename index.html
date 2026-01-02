@@ -696,15 +696,18 @@
       form.append("message", text);
       if (file) form.append("image", file); // ✅ 後端仍叫 image（可為圖片或 PDF）
 
-      fetch(`${API_BASE_URL}/chat`, { method: "POST", body: form });
-      if (!res.ok) {
-        const err = await res.text();
-        throw new Error(err || res.statusText);
-      }
+      const res = await fetch(`${API_BASE_URL}/chat`, {
+  method: "POST",
+  body: form,
+});
 
-      const data = await res.json();
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(err || res.statusText);
+        }
+
+      const data = await res.json(); 
       const replyText = (data && data.reply) ? data.reply : "";
-
       const cost = ((performance.now() - startTime) / 1000).toFixed(2);
 
       // remove thinking
@@ -817,5 +820,6 @@
 </script>
 </body>
 </html>
+
 
 
