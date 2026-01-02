@@ -696,7 +696,7 @@
       form.append("message", text);
       if (file) form.append("image", file); // ✅ 後端仍叫 image（可為圖片或 PDF）
 
-      const res = await fetch(`${BASE_URL}/chat`, { method: "POST", body: form });
+      fetch(`${API_BASE_URL}/chat`, { method: "POST", body: form });
       if (!res.ok) {
         const err = await res.text();
         throw new Error(err || res.statusText);
@@ -817,4 +817,5 @@
 </script>
 </body>
 </html>
+
 
