@@ -641,21 +641,74 @@
   };
 
   /* =========================
-     Speech Recognition (語音輸入)
-  ========================= */
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const recog = SR ? new SR() : null;
+   Speech Recognition (語音輸入)
+========================= */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const recog = SR ? new SR() : null;
 
-  if (recog) {
-    recog.lang = "zh-TW";
-    micBtn.onclick = () => recog.start();
-    recog.onresult = e => {
-      inputEl.value = e.results[0][0].transcript;
-    };
-  } else {
-    micBtn.disabled = true;
-    micBtn.textContent = "🎤 此瀏覽器不支援語音輸入";
-  }
+let isListening = false;
+let lastTranscript = "";
+
+function resetMicUI() {
+  isListening = false;
+  micBtn.textContent = "🎤 語音輸入";
+  micBtn.classList.remove("voice-on");
+}
+
+if (recog) {
+  recog.lang = "zh-TW";
+  recog.interimResults = false;
+  recog.maxAlternatives = 1;
+
+  // 🎤 點擊麥克風：開始 / 停止
+  micBtn.onclick = () => {
+    if (!isListening) {
+      try {
+        recog.start();
+        isListening = true;
+        micBtn.textContent = "🛑 停止語音";
+        micBtn.classList.add("voice-on");
+      } catch (e) {
+        console.warn("Speech start error", e);
+      }
+    } else {
+      recog.stop();
+    }
+  };
+
+  // 🎯 辨識成功
+  recog.onresult = e => {
+    const text = e.results[0][0].transcript.trim();
+    if (!text || text === lastTranscript) return;
+
+    lastTranscript = text;
+    inputEl.value = text;
+
+    // ⭐ 像 Siri：自動送出
+    sendBtn.click();
+  };
+
+  // ⛔ 發生錯誤
+  recog.onerror = e => {
+    console.warn("Speech error:", e.error);
+    if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+      alert("請允許麥克風權限後再使用語音輸入");
+    } else {
+      alert("語音辨識失敗，請再試一次");
+    }
+    resetMicUI();
+  };
+
+  // ✅ 結束監聽
+  recog.onend = () => {
+    resetMicUI();
+  };
+
+} else {
+  micBtn.disabled = true;
+  micBtn.textContent = "🎤 此瀏覽器不支援語音輸入";
+}
+
 
   /* =========================
      Load history (保留功能)
@@ -820,6 +873,7 @@
 </script>
 </body>
 </html>
+
 
 
 
