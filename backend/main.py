@@ -89,33 +89,22 @@ RAG_ANSWER_PROMPT = """
 - 回答請簡潔、有根據
 """
 
-IMAGE_CLASSIFY_PROMPT = """
-你是一個圖片/頁面類型分類助手。
-請判斷這份內容（可能是圖片或 PDF 頁面）屬於以下哪一種：
-- 行事曆（calendar）
-- 表格（table）
-- 文件（document）
-- 手寫筆記（handwritten）
-- UI 介面（ui）
-- 地圖（map）
-- 生活照片（photo）
-- 其他（other）
-只輸出一個類型字串（例如：calendar）
+IMAGE_ANALYZE_PROMPT = """
+你是一個圖片 / PDF 理解助理。
+請根據輸入內容，完成以下兩件事，並「只用 JSON 格式」回答：
+
+{
+  "type": "calendar | table | document | handwritten | ui | map | photo | other",
+  "summary": "200 字以內的內容摘要"
+}
+
+規則：
+- type 只能是列舉的其中一個英文值
+- summary 請依內容客觀摘要
+- 不要回答使用者問題
+- 不要加入額外說明文字
 """
 
-FILE_SUMMARY_PROMPT = """
-請將圖片或 PDF 的主要內容摘要成 200 字以內。
-請包含：
-- 主要物件或文字
-- 若是文件，摘要段落重點
-- 若是表格，摘要欄位與關鍵資料
-- 若是行事曆，摘要有哪些事件（不要逐格描述）
-- 若是照片，描述主要場景
-禁止：
-- 不要回答使用者問題
-- 不要推測意圖
-- 不要延伸評論
-"""
 
 def build_file_answer_prompt(file_type: str) -> str:
     base = """
@@ -166,29 +155,58 @@ def make_part_from_bytes(data: bytes, mime: str) -> "types.Part":
         return types.Part.from_bytes(data, mime)
 
 
-def safe_generate_content(*, model: str, contents: list, tools: Optional[list] = None) -> str:
+import time
+import random
+
+def safe_generate_content(
+    *,
+    model: str,
+    contents: list,
+    tools: Optional[list] = None,
+    max_retry: int = 3
+) -> str:
     """
-    統一處理 Gemini 呼叫錯誤（含 429 quota）
+    統一處理 Gemini 呼叫錯誤（429 / 503 / overloaded）
+    含自動 retry + backoff
     """
-    try:
-        if tools:
-            res = client.models.generate_content(
-                model=model,
-                contents=contents,
-                config=types.GenerateContentConfig(tools=tools),
-            )
-        else:
-            res = client.models.generate_content(
-                model=model,
-                contents=contents,
-            )
-        return (res.text or "").strip()
-    except Exception as e:
-        msg = str(e)
-        # 你截圖的 429 RESOURCE_EXHAUSTED
-        if "429" in msg or "RESOURCE_EXHAUSTED" in msg or "quota" in msg.lower():
-            return "⚠️ 目前 Gemini 額度/流量已達上限（429 RESOURCE_EXHAUSTED）。請稍後再試，或升級方案/更換可用模型。"
-        return f"⚠️ 伺服器呼叫 Gemini 失敗：{msg}"
+    for attempt in range(max_retry):
+        try:
+            if tools:
+                res = client.models.generate_content(
+                    model=model,
+                    contents=contents,
+                    config=types.GenerateContentConfig(tools=tools),
+                )
+            else:
+                res = client.models.generate_content(
+                    model=model,
+                    contents=contents,
+                )
+            return (res.text or "").strip()
+
+        except Exception as e:
+            msg = str(e)
+
+            # ===== 過載 / 暫時不可用（最常見）=====
+            if (
+                "503" in msg
+                or "UNAVAILABLE" in msg
+                or "overloaded" in msg.lower()
+            ):
+                if attempt < max_retry - 1:
+                    # 指數退避 + jitter
+                    sleep_time = 1.2 * (attempt + 1) + random.uniform(0, 0.6)
+                    time.sleep(sleep_time)
+                    continue
+                return "⚠️ 模型目前繁忙，請稍後再試（系統已自動重試）"
+
+            # ===== 額度用盡 =====
+            if "429" in msg or "RESOURCE_EXHAUSTED" in msg or "quota" in msg.lower():
+                return "⚠️ 目前 Gemini 額度或流量已達上限，請稍後再試或更換模型。"
+
+            # ===== 其他錯誤 =====
+            return f"⚠️ Gemini 呼叫失敗：{msg}"
+
 # =========================
 # RAG Helpers
 # =========================
@@ -298,94 +316,85 @@ async def chat(
     message = (message or "").strip()
 
     # =========================
-    # Case 1：有上傳檔案（圖片或 PDF）
-    # =========================
-    if image is not None:
-        file_bytes = await image.read()
-        mime = (image.content_type or "").strip().lower() or "application/octet-stream"
-        use_rag = False
-        if mime == "application/pdf" and len(file_bytes) > RAG_FILE_SIZE_THRESHOLD:
-            use_rag = True
+# Case 1：有上傳檔案（圖片或 PDF）
+# =========================
+if image is not None:
+    file_bytes = await image.read()
+    mime = (image.content_type or "").strip().lower() or "application/octet-stream"
 
+    use_rag = False
+    if mime == "application/pdf" and len(file_bytes) > RAG_FILE_SIZE_THRESHOLD:
+        use_rag = True
 
-        # 存 base64（你未來想做「再次引用原檔」也方便）
-        file_b64 = base64.b64encode(file_bytes).decode("utf-8")
+    file_b64 = base64.b64encode(file_bytes).decode("utf-8")
+    part = make_part_from_bytes(file_bytes, mime)
 
-        # (A) 類型判斷
-        part = make_part_from_bytes(file_bytes, mime)
-        file_type = safe_generate_content(
-            model=MODEL_FAST,
-            contents=[IMAGE_CLASSIFY_PROMPT, part],
-        ).strip().lower()
+    # ===== (A+B) 分析圖片 / PDF（一次 Gemini 呼叫）=====
+    import json
+    result = safe_generate_content(
+        model=MODEL_FAST,
+        contents=[IMAGE_ANALYZE_PROMPT, part],
+    )
 
-        # 避免模型亂回：只收斂到這幾種
-        allowed = {"calendar", "table", "document", "handwritten", "ui", "map", "photo", "other"}
-        if file_type not in allowed:
-            file_type = "other"
+    try:
+        parsed = json.loads(result)
+        file_type = parsed.get("type", "other").lower()
+        file_summary = parsed.get("summary", "")
+    except Exception:
+        file_type = "other"
+        file_summary = result
 
-        # (B) 摘要
-        file_summary = safe_generate_content(
-            model=MODEL_FAST,
-            contents=[FILE_SUMMARY_PROMPT, part],
-        )
-
-        # (C) 記憶
-        chat_memory.append({
-            "role": "file",
-            "content": message or "[使用者上傳檔案]",
-            "filename": image.filename or "uploaded",
-            "b64": file_b64,
-            "mime": mime,
-            "summary": file_summary,
-            "type": file_type,
-        })
-        trim_memory()
-
-        # (D) 若有提問 → 依規則回答（只用「最近一份檔案摘要」避免你抱怨它列出整個月）
-        # (D) 若有提問 → 回答
-if message:
-
-    # ===== RAG 路徑（只在大 PDF）=====
-    if use_rag:
-        chunks = chunk_text(file_summary)  # v1 先用摘要，穩
-        embeddings = embed_texts(chunks)
-        add_to_rag_store(chunks, embeddings)
-
-        relevant = retrieve_relevant_chunks(message)
-
-        reply = safe_generate_content(
-            model=MODEL_TEXT,
-            contents=[
-                RAG_ANSWER_PROMPT,
-                "【文件片段】\n" + "\n---\n".join(relevant),
-                f"使用者問題：{message}"
-            ]
-        )
-
-    # ===== 原本 summary QA（完全不動）=====
-    else:
-        prompt = build_file_answer_prompt(file_type)
-        convo = [prompt]
-
-        for m in reversed(chat_memory):
-            if m.get("role") == "file":
-                convo.append(f"【檔案摘要】：{m.get('summary','')}")
-                break
-
-        convo.append(f"使用者問題：{message}")
-
-        reply = safe_generate_content(
-            model=MODEL_FAST,
-            contents=convo,
-        )
-
-    chat_memory.append({"role": "assistant", "content": reply})
+    # ===== (C) 存記憶 =====
+    chat_memory.append({
+        "role": "file",
+        "content": message or "[使用者上傳檔案]",
+        "filename": image.filename or "uploaded",
+        "b64": file_b64,
+        "mime": mime,
+        "summary": file_summary,
+        "type": file_type,
+    })
     trim_memory()
-    return ChatResponse(reply=reply)
 
+    # ===== (D) 若有提問 → 回答 =====
+    if message:
 
-        # 沒問問題：回摘要
-        return ChatResponse(reply=f"✅ 已收到檔案（{image.filename}）。我整理的摘要如下：\n\n{file_summary}")
+        # --- RAG 路徑 ---
+        if use_rag:
+            chunks = chunk_text(file_summary)
+            embeddings = embed_texts(chunks)
+            add_to_rag_store(chunks, embeddings)
+
+            relevant = retrieve_relevant_chunks(message)
+
+            reply = safe_generate_content(
+                model=MODEL_TEXT,
+                contents=[
+                    RAG_ANSWER_PROMPT,
+                    "【文件片段】\n" + "\n---\n".join(relevant),
+                    f"使用者問題：{message}"
+                ]
+            )
+
+        # --- 原本 summary QA ---
+        else:
+            prompt = build_file_answer_prompt(file_type)
+            convo = [prompt, f"【檔案摘要】：{file_summary}", f"使用者問題：{message}"]
+
+            reply = safe_generate_content(
+                model=MODEL_FAST,
+                contents=convo,
+            )
+
+        chat_memory.append({"role": "assistant", "content": reply})
+        trim_memory()
+        return ChatResponse(reply=reply)
+
+    # 沒有提問 → 回摘要
+    return ChatResponse(
+        reply=f"✅ 已收到檔案（{image.filename}）。我整理的摘要如下：\n\n{file_summary}"
+    )
+
 
     # =========================
     # Case 2：純文字聊天（保留上下文 + 可選自動 web search）
@@ -432,4 +441,5 @@ if message:
     chat_memory.append({"role": "assistant", "content": reply})
     trim_memory()
     return ChatResponse(reply=reply)
+
 
