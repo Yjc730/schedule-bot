@@ -17,6 +17,10 @@ from google.genai import types
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 ENABLE_WEB_SEARCH = os.getenv("ENABLE_WEB_SEARCH", "0").strip() == "1"  # 模型自動判斷需要才搜尋
 MAX_MEMORY_MESSAGES = int(os.getenv("MAX_MEMORY_MESSAGES", "30"))
+# =========================
+# RAG Config
+# =========================
+RAG_FILE_SIZE_THRESHOLD = 1_000_000  # 1MB 以上 PDF 啟用 RAG
 
 # 模型可依你的額度/需求調整
 MODEL_FAST = os.getenv("MODEL_FAST", "gemini-2.5-flash").strip()   # 圖片分類/摘要/一般聊天
@@ -77,6 +81,14 @@ def trim_memory():
 # =========================
 # Prompts
 # =========================
+RAG_ANSWER_PROMPT = """
+你是一個文件問答助理。
+請只根據以下「文件片段」回答問題。
+- 若文件中找不到答案，請明確回答「文件中未提及」
+- 不要自行推測
+- 回答請簡潔、有根據
+"""
+
 IMAGE_CLASSIFY_PROMPT = """
 你是一個圖片/頁面類型分類助手。
 請判斷這份內容（可能是圖片或 PDF 頁面）屬於以下哪一種：
@@ -177,6 +189,54 @@ def safe_generate_content(*, model: str, contents: list, tools: Optional[list] =
         if "429" in msg or "RESOURCE_EXHAUSTED" in msg or "quota" in msg.lower():
             return "⚠️ 目前 Gemini 額度/流量已達上限（429 RESOURCE_EXHAUSTED）。請稍後再試，或升級方案/更換可用模型。"
         return f"⚠️ 伺服器呼叫 Gemini 失敗：{msg}"
+# =========================
+# RAG Helpers
+# =========================
+import numpy as np
+
+rag_store = []  # 暫存向量（先用記憶體，不破壞現有架構）
+
+
+def chunk_text(text: str, chunk_size=500, overlap=100):
+    chunks = []
+    start = 0
+    while start < len(text):
+        end = start + chunk_size
+        chunks.append(text[start:end])
+        start = end - overlap
+    return chunks
+
+
+def embed_texts(texts):
+    res = client.models.embed_content(
+        model="text-embedding-004",
+        content=texts
+    )
+    return [e.values for e in res.embeddings]
+
+
+def cosine_similarity(a, b):
+    a = np.array(a)
+    b = np.array(b)
+    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+
+
+def add_to_rag_store(chunks, embeddings):
+    for c, e in zip(chunks, embeddings):
+        rag_store.append({
+            "text": c,
+            "embedding": e
+        })
+
+
+def retrieve_relevant_chunks(query, top_k=3):
+    query_emb = embed_texts([query])[0]
+    scored = []
+    for item in rag_store:
+        score = cosine_similarity(query_emb, item["embedding"])
+        scored.append((score, item["text"]))
+    scored.sort(reverse=True)
+    return [t for _, t in scored[:top_k]]
 
 
 # =========================
@@ -243,6 +303,10 @@ async def chat(
     if image is not None:
         file_bytes = await image.read()
         mime = (image.content_type or "").strip().lower() or "application/octet-stream"
+        use_rag = False
+        if mime == "application/pdf" and len(file_bytes) > RAG_FILE_SIZE_THRESHOLD:
+            use_rag = True
+
 
         # 存 base64（你未來想做「再次引用原檔」也方便）
         file_b64 = base64.b64encode(file_bytes).decode("utf-8")
@@ -278,25 +342,47 @@ async def chat(
         trim_memory()
 
         # (D) 若有提問 → 依規則回答（只用「最近一份檔案摘要」避免你抱怨它列出整個月）
-        if message:
-            prompt = build_file_answer_prompt(file_type)
-            convo = [prompt]
+        # (D) 若有提問 → 回答
+if message:
 
-            # 帶入最近一份檔案摘要
-            for m in reversed(chat_memory):
-                if m.get("role") == "file":
-                    convo.append(f"【檔案摘要】：{m.get('summary','')}")
-                    break
+    # ===== RAG 路徑（只在大 PDF）=====
+    if use_rag:
+        chunks = chunk_text(file_summary)  # v1 先用摘要，穩
+        embeddings = embed_texts(chunks)
+        add_to_rag_store(chunks, embeddings)
 
-            convo.append(f"使用者問題：{message}")
+        relevant = retrieve_relevant_chunks(message)
 
-            reply = safe_generate_content(
-                model=MODEL_FAST,
-                contents=convo,
-            )
-            chat_memory.append({"role": "assistant", "content": reply})
-            trim_memory()
-            return ChatResponse(reply=reply)
+        reply = safe_generate_content(
+            model=MODEL_TEXT,
+            contents=[
+                RAG_ANSWER_PROMPT,
+                "【文件片段】\n" + "\n---\n".join(relevant),
+                f"使用者問題：{message}"
+            ]
+        )
+
+    # ===== 原本 summary QA（完全不動）=====
+    else:
+        prompt = build_file_answer_prompt(file_type)
+        convo = [prompt]
+
+        for m in reversed(chat_memory):
+            if m.get("role") == "file":
+                convo.append(f"【檔案摘要】：{m.get('summary','')}")
+                break
+
+        convo.append(f"使用者問題：{message}")
+
+        reply = safe_generate_content(
+            model=MODEL_FAST,
+            contents=convo,
+        )
+
+    chat_memory.append({"role": "assistant", "content": reply})
+    trim_memory()
+    return ChatResponse(reply=reply)
+
 
         # 沒問問題：回摘要
         return ChatResponse(reply=f"✅ 已收到檔案（{image.filename}）。我整理的摘要如下：\n\n{file_summary}")
@@ -346,3 +432,4 @@ async def chat(
     chat_memory.append({"role": "assistant", "content": reply})
     trim_memory()
     return ChatResponse(reply=reply)
+
