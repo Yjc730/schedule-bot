@@ -308,7 +308,7 @@ async def reset():
 @app.post("/chat", response_model=ChatResponse)
 async def chat(
     message: str = Form(""),
-    image: Optional[UploadFile] = File(None),  # 前端欄位仍叫 image，但可上傳 image/* 或 application/pdf
+    image: Optional[UploadFile] = File(None),
 ):
     if not client:
         return ChatResponse(reply="❌ 後端尚未設定 GEMINI_API_KEY")
@@ -316,88 +316,86 @@ async def chat(
     message = (message or "").strip()
 
     # =========================
-# Case 1：有上傳檔案（圖片或 PDF）
-# =========================
-if image is not None:
-    file_bytes = await image.read()
-    mime = (image.content_type or "").strip().lower() or "application/octet-stream"
+    # Case 1：有上傳檔案（圖片或 PDF）
+    # =========================
+    if image is not None:
+        file_bytes = await image.read()
+        mime = (image.content_type or "").strip().lower() or "application/octet-stream"
 
-    use_rag = False
-    if mime == "application/pdf" and len(file_bytes) > RAG_FILE_SIZE_THRESHOLD:
-        use_rag = True
+        use_rag = (
+            mime == "application/pdf"
+            and len(file_bytes) > RAG_FILE_SIZE_THRESHOLD
+        )
 
-    file_b64 = base64.b64encode(file_bytes).decode("utf-8")
-    part = make_part_from_bytes(file_bytes, mime)
+        file_b64 = base64.b64encode(file_bytes).decode("utf-8")
+        part = make_part_from_bytes(file_bytes, mime)
 
-    # ===== (A+B) 分析圖片 / PDF（一次 Gemini 呼叫）=====
-    import json
-    result = safe_generate_content(
-        model=MODEL_FAST,
-        contents=[IMAGE_ANALYZE_PROMPT, part],
-    )
+        # (A+B) 分析圖片 / PDF（一次 Gemini 呼叫）
+        import json
+        result = safe_generate_content(
+            model=MODEL_FAST,
+            contents=[IMAGE_ANALYZE_PROMPT, part],
+        )
 
-    try:
-        parsed = json.loads(result)
-        file_type = parsed.get("type", "other").lower()
-        file_summary = parsed.get("summary", "")
-    except Exception:
-        file_type = "other"
-        file_summary = result
+        try:
+            parsed = json.loads(result)
+            file_type = parsed.get("type", "other").lower()
+            file_summary = parsed.get("summary", "")
+        except Exception:
+            file_type = "other"
+            file_summary = result
 
-    # ===== (C) 存記憶 =====
-    chat_memory.append({
-        "role": "file",
-        "content": message or "[使用者上傳檔案]",
-        "filename": image.filename or "uploaded",
-        "b64": file_b64,
-        "mime": mime,
-        "summary": file_summary,
-        "type": file_type,
-    })
-    trim_memory()
+        # (C) 存記憶
+        chat_memory.append({
+            "role": "file",
+            "content": message or "[使用者上傳檔案]",
+            "filename": image.filename or "uploaded",
+            "b64": file_b64,
+            "mime": mime,
+            "summary": file_summary,
+            "type": file_type,
+        })
+        trim_memory()
 
-    # ===== (D) 若有提問 → 回答 =====
-    if message:
+        # (D) 若有提問 → 回答
+        if message:
+            if use_rag:
+                chunks = chunk_text(file_summary)
+                embeddings = embed_texts(chunks)
+                add_to_rag_store(chunks, embeddings)
+                relevant = retrieve_relevant_chunks(message)
 
-        # --- RAG 路徑 ---
-        if use_rag:
-            chunks = chunk_text(file_summary)
-            embeddings = embed_texts(chunks)
-            add_to_rag_store(chunks, embeddings)
-
-            relevant = retrieve_relevant_chunks(message)
-
-            reply = safe_generate_content(
-                model=MODEL_TEXT,
-                contents=[
-                    RAG_ANSWER_PROMPT,
-                    "【文件片段】\n" + "\n---\n".join(relevant),
+                reply = safe_generate_content(
+                    model=MODEL_TEXT,
+                    contents=[
+                        RAG_ANSWER_PROMPT,
+                        "【文件片段】\n" + "\n---\n".join(relevant),
+                        f"使用者問題：{message}"
+                    ]
+                )
+            else:
+                prompt = build_file_answer_prompt(file_type)
+                convo = [
+                    prompt,
+                    f"【檔案摘要】：{file_summary}",
                     f"使用者問題：{message}"
                 ]
-            )
+                reply = safe_generate_content(
+                    model=MODEL_FAST,
+                    contents=convo,
+                )
 
-        # --- 原本 summary QA ---
-        else:
-            prompt = build_file_answer_prompt(file_type)
-            convo = [prompt, f"【檔案摘要】：{file_summary}", f"使用者問題：{message}"]
+            chat_memory.append({"role": "assistant", "content": reply})
+            trim_memory()
+            return ChatResponse(reply=reply)
 
-            reply = safe_generate_content(
-                model=MODEL_FAST,
-                contents=convo,
-            )
-
-        chat_memory.append({"role": "assistant", "content": reply})
-        trim_memory()
-        return ChatResponse(reply=reply)
-
-    # 沒有提問 → 回摘要
-    return ChatResponse(
-        reply=f"✅ 已收到檔案（{image.filename}）。我整理的摘要如下：\n\n{file_summary}"
-    )
-
+        # 沒有提問 → 回摘要
+        return ChatResponse(
+            reply=f"✅ 已收到檔案（{image.filename}）。我整理的摘要如下：\n\n{file_summary}"
+        )
 
     # =========================
-    # Case 2：純文字聊天（保留上下文 + 可選自動 web search）
+    # Case 2：純文字聊天
     # =========================
     if not message:
         return ChatResponse(reply="請輸入問題或上傳圖片 / PDF 喔！")
@@ -407,13 +405,9 @@ if image is not None:
 
     system = """
 你是一個自然、口語化、但回答有重點的 AI 助理，請使用繁體中文。
-你會看到一段「對話記憶」與（可能的）「檔案摘要」。
-- 如果使用者問的是先前上傳的圖片/PDF內容，優先用檔案摘要回答。
-- 如果問題明顯需要最新/外部資訊，且你有 web search 工具可用，才使用搜尋。
-- 若不需要搜尋，請不要搜尋。
+你會看到一段對話記憶與（可能的）檔案摘要。
 """
 
-    # 組合對話上下文（含最近的檔案摘要）
     convo = [system]
     for m in chat_memory[-10:]:
         if m["role"] == "user":
@@ -422,15 +416,12 @@ if image is not None:
             convo.append(f"助理：{m['content']}")
         elif m["role"] == "file":
             convo.append(f"（先前檔案摘要）：{m.get('summary','')}")
+
     convo.append(f"使用者：{message}")
 
-    # 是否啟用 web search 工具（不破壞現有功能：關掉就是原本行為）
     tools = None
     if ENABLE_WEB_SEARCH and should_use_web_search(message):
-        tools = web_search_tools()
-        # 若 tools 建立失敗，就退回不使用工具
-        if not tools:
-            tools = None
+        tools = web_search_tools() or None
 
     reply = safe_generate_content(
         model=MODEL_TEXT,
@@ -441,5 +432,6 @@ if image is not None:
     chat_memory.append({"role": "assistant", "content": reply})
     trim_memory()
     return ChatResponse(reply=reply)
+
 
 
