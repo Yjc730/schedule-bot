@@ -3,5 +3,6 @@ uvicorn
 python-multipart
 pydantic
 requests
-google-genai
+numpy
+google-generativeai
 PyPDF2
