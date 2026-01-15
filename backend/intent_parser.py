@@ -2,29 +2,24 @@ import os
 import json
 import google.generativeai as genai
 
-# 初始化 Gemini
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 model = genai.GenerativeModel("gemini-1.5-flash")
 
-
 def parse_intent(command: str) -> dict:
-    """
-    把使用者說的話轉成結構化 intent
-    """
     prompt = f"""
-你是一個語音助理的意圖解析器。
-請把使用者指令轉成 JSON，不要解釋。
+你是一個語音助理的 intent parser。
+請將使用者指令轉成 JSON，只能輸出 JSON。
 
-指令：
-「{command}」
-
-請只回傳 JSON，格式如下：
+格式：
 {{
-  "intent": "...",
-  "target": "...",
-  "extra": "..."
+  "intent": "send_email | create_event | open_app | unknown",
+  "target": "",
+  "extra": ""
 }}
+
+使用者指令：
+{command}
 """
 
     response = model.generate_content(prompt)
@@ -32,8 +27,9 @@ def parse_intent(command: str) -> dict:
 
     try:
         return json.loads(text)
-    except json.JSONDecodeError:
+    except Exception:
         return {
             "intent": "unknown",
-            "raw": text
+            "target": "",
+            "extra": text
         }
