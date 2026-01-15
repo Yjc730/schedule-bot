@@ -43,7 +43,7 @@ def listen_wake_word():
             result = porcupine.process(pcm)
             if result >= 0:
                 print("🔥 Wake word detected!")
-                time.sleep(1)
+                break
 
     except KeyboardInterrupt:
         print("👋 停止監聽")
