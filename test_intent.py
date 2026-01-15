@@ -1,7 +1,11 @@
+# test_intent.py
 from backend.intent_parser import parse_intent
 
-if __name__ == "__main__":
-    command = "幫我寄信給主管"
-    result = parse_intent(command)
-    print("🎯 Intent Result:")
+while True:
+    cmd = input("🗣 請輸入指令：")
+    if cmd in ("exit", "quit"):
+        break
+
+    result = parse_intent(cmd)
+    print("🤖 Intent result:")
     print(result)
