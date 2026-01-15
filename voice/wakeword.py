@@ -17,7 +17,7 @@ def listen_wake_word():
 
     porcupine = pvporcupine.create(
         access_key=access_key,
-        keywords=["hey computer"]  # 內建關鍵字，先測 pipeline
+        keywords=["computer"]  # 內建關鍵字，先測 pipeline
     )
 
     pa = pyaudio.PyAudio()
