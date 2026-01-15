@@ -1,3 +1,4 @@
+from voice.command_listener import listen_command
 import os
 import time
 import pvporcupine
@@ -43,9 +44,12 @@ def listen_wake_word():
             result = porcupine.process(pcm)
 
             if result >= 0:
-                print("🔥 Wake word detected! Opening Outlook...")
-                os.system('open -a "Microsoft Outlook"')
-                break   # ✅ 現在在 while 裡，合法
+                print("🔥 Wake word detected!")
+            
+                command = listen_command()
+                print("📦 COMMAND =", command)
+            
+                time.sleep(1)
 
     except KeyboardInterrupt:
         print("👋 停止監聽")
