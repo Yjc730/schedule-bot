@@ -1,68 +1,48 @@
 # backend/intent_parser.py
 import os
 import json
-import google.genai as genai
+from google import genai
 
-# =====================
-# Config
-# =====================
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
-MODEL_INTENT = os.getenv("MODEL_INTENT", "gemini-2.5-flash").strip()
-
-if not GEMINI_API_KEY:
-    raise RuntimeError("❌ GEMINI_API_KEY 未設定")
+MODEL_TEXT = os.getenv("MODEL_TEXT", "gemini-2.5-flash").strip()
 
 client = genai.Client(api_key=GEMINI_API_KEY)
 
-# =====================
-# Intent Parser
-# =====================
-def parse_intent(command: str) -> dict:
-    """
-    將自然語言指令轉為 intent + slots
-    """
+SYSTEM_PROMPT = """
+你是一個語音助理的 intent parser。
+請只輸出 JSON，不要任何解釋文字。
 
-    system_prompt = """
-你是一個「指令解析器」，只輸出 JSON，不要解釋。
-
-請將使用者指令轉成以下格式：
+格式：
 {
-  "intent": "<動作>",
+  "intent": "<intent_name>",
   "slots": { ... }
 }
 
 可用 intent：
 - send_email
-- create_calendar
 - open_app
 - unknown
-
-規則：
-- 若是寄信，intent=send_email，slots 包含 to, content
-- 若是行事曆，intent=create_calendar，slots 包含 date, time, title
-- 若只是開 App，intent=open_app，slots 包含 app
-- 無法判斷就 intent=unknown
 """
 
+def parse_intent(command: str) -> dict:
     prompt = f"""
-{system_prompt}
+{SYSTEM_PROMPT}
 
-使用者指令：
+使用者說：
 「{command}」
 """
 
-    response = client.models.generate_content(
-        model=MODEL_INTENT,
-        contents=prompt,
+    resp = client.models.generate_content(
+        model=MODEL_TEXT,
+        contents=prompt
     )
 
-    text = response.text.strip()
+    text = resp.text.strip()
 
     try:
         return json.loads(text)
-    except json.JSONDecodeError:
+    except Exception:
         return {
             "intent": "unknown",
-            "slots": {},
             "raw": text
         }
