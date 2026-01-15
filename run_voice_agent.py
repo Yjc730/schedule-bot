@@ -1,9 +1,7 @@
-print("🚀 run_voice_agent.py started")
+from backend.intent_parser import parse_intent
+from backend.action_router import route_action
 
-from voice.wakeword import listen_wake_word
+command = "我明天請假，幫我寄信給主管"  # 目前來自語音
 
-print("📦 imported listen_wake_word")
-
-if __name__ == "__main__":
-    print("🎤 calling listen_wake_word()")
-    listen_wake_word()
+intent_data = parse_intent(command)
+route_action(intent_data)
