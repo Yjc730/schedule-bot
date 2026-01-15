@@ -40,10 +40,11 @@ def listen_wake_word():
                 pcm
             )
 
-            result = porcupine.process(pcm)
             if result >= 0:
-                print("🔥 Wake word detected!")
-                break
+    print("🔥 Wake word detected! Opening Outlook...")
+    os.system('open -a "Microsoft Outlook"')
+    break
+
 
     except KeyboardInterrupt:
         print("👋 停止監聽")
