@@ -40,10 +40,10 @@ def listen_wake_word():
                 pcm
             )
 
-    if result >= 0:
-        print("🔥 Wake word detected! Opening Outlook...")
-        os.system('open -a "Microsoft Outlook"')
-        break
+        if result >= 0:
+            print("🔥 Wake word detected! Opening Outlook...")
+            os.system('open -a "Microsoft Outlook"')
+            break
 
 
     except KeyboardInterrupt:
