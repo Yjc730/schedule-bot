@@ -4,8 +4,10 @@ import pvporcupine
 import pyaudio
 import struct
 
+print("✅ wakeword.py loaded")
 
 def listen_wake_word():
+    print("🎙 listen_wake_word() called")
     access_key = os.getenv("PICOVOICE_ACCESS_KEY")
     if not access_key:
         print("❌ PICOVOICE_ACCESS_KEY 未設定")
