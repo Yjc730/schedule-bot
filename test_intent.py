@@ -1,10 +1,7 @@
-from intent_parser import parse_intent
+from backend.intent_parser import parse_intent
 
-while True:
-    cmd = input("請輸入指令（exit 離開）：")
-    if cmd == "exit":
-        break
-
-    result = parse_intent(cmd)
-    print("🧠 Intent Result:")
+if __name__ == "__main__":
+    command = "幫我寄信給主管"
+    result = parse_intent(command)
+    print("🎯 Intent Result:")
     print(result)
