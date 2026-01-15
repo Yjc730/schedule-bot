@@ -11,11 +11,11 @@ def listen_wake_word():
         print("❌ PICOVOICE_ACCESS_KEY 未設定")
         return
 
-    print("🎙 Listening for wake word: '嘿助理'")
+    print("🎙 Listening for wake word: hey computer")
 
     porcupine = pvporcupine.create(
         access_key=access_key,
-        keywords=["hey computer"]  # 先用內建的測
+        keywords=["hey computer"]  # 內建關鍵字，先測 pipeline
     )
 
     pa = pyaudio.PyAudio()
@@ -29,9 +29,13 @@ def listen_wake_word():
 
     try:
         while True:
-            pcm = stream.read(porcupine.frame_length, exception_on_overflow=False)
+            pcm = stream.read(
+                porcupine.frame_length,
+                exception_on_overflow=False
+            )
             pcm = struct.unpack_from(
-                "h" * porcupine.frame_length, pcm
+                "h" * porcupine.frame_length,
+                pcm
             )
 
             result = porcupine.process(pcm)
@@ -46,4 +50,3 @@ def listen_wake_word():
         stream.close()
         pa.terminate()
         porcupine.delete()
-
