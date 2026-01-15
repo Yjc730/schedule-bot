@@ -46,10 +46,17 @@ def listen_wake_word():
             if result >= 0:
                 print("🔥 Wake word detected!")
             
+                # ❶ 停止 Porcupine 麥克風
+                stream.stop_stream()
+                stream.close()
+                pa.terminate()
+                porcupine.delete()
+            
+                # ❷ 再聽你說話
                 command = listen_command()
                 print("📦 COMMAND =", command)
             
-                time.sleep(1)
+                break  # 結束 wakeword loop
 
     except KeyboardInterrupt:
         print("👋 停止監聽")
