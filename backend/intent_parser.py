@@ -15,33 +15,29 @@ if not GEMINI_API_KEY:
 client = genai.Client(api_key=GEMINI_API_KEY)
 
 # ======================
-# Prompt 1：語意修復
+# Unified Prompt
 # ======================
-FIX_PROMPT = """
-你是一個語音指令修正器。
+SYSTEM_PROMPT = """
+你是一個「語音助理的語意修復 + intent parser」。
 
 使用者的語音轉文字可能有：
 - 錯字
 - 誤聽
-- 詞語顛倒
 - 同音錯誤（例如：寄信 → 記性）
+- 詞語顛倒
 
-請根據語意，修正成一個「合理、自然的人類指令句」。
+請你完成以下工作：
+1. 先在心中修正語意（不要輸出修正句）
+2. 根據修正後的語意，判斷 intent
+3. 輸出 intent 與 slots
 
-⚠️ 規則：
-- 只輸出修正後的句子
-- 不要解釋
-- 不要加引號
-"""
+⚠️ 嚴格規則：
+- 只輸出 JSON
+- 不要任何解釋
+- 不要 markdown
+- 不要多餘文字
 
-# ======================
-# Prompt 2：Intent Parser
-# ======================
-INTENT_PROMPT = """
-你是一個語音助理的 intent parser。
-請「只輸出 JSON」，不要任何解釋文字。
-
-格式：
+JSON 格式：
 {
   "intent": "<intent_name>",
   "slots": { ... }
@@ -51,40 +47,33 @@ INTENT_PROMPT = """
 - send_email
 - open_app
 - unknown
+
+send_email slots 範例：
+{
+  "recipient": "主管",
+  "body": "我明天請假"
+}
 """
 
 # ======================
 # Main function
 # ======================
 def parse_intent(command: str) -> dict:
-    # -------- Step 1：語意修復 --------
-    fix_response = client.models.generate_content(
-        model=MODEL_TEXT,
-        contents=[
-            FIX_PROMPT,
-            f"原始語音轉文字：{command}"
-        ]
-    )
-
-    fixed_command = fix_response.text.strip()
-    print(f"🛠 修正後指令：{fixed_command}")
-
-    # -------- Step 2：Intent 判斷 --------
-    intent_prompt = f"""
-{INTENT_PROMPT}
+    prompt = f"""
+{SYSTEM_PROMPT}
 
 使用者說：
-「{fixed_command}」
+「{command}」
 """
 
     response = client.models.generate_content(
         model=MODEL_TEXT,
-        contents=intent_prompt
+        contents=prompt
     )
 
     text = response.text.strip()
 
-    # 🔧 去掉 ```json ``` 包裝
+    # 🔧 清除 ```json ``` 包裝（防禦型）
     if text.startswith("```"):
         text = text.strip("`")
         if text.startswith("json"):
@@ -96,6 +85,5 @@ def parse_intent(command: str) -> dict:
         return {
             "intent": "unknown",
             "raw": response.text,
-            "fixed_command": fixed_command,
             "error": str(e)
         }
