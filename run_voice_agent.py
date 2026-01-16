@@ -44,7 +44,7 @@ def run_voice_agent():
 
     while True:
         # A-3-1：等待喚醒詞
-        listen_wake_word()
+        #listen_wake_word()
 
         print("👂 Wake word detected!")
 
