@@ -9,10 +9,12 @@ from google import genai
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 MODEL_TEXT = os.getenv("MODEL_TEXT", "gemini-2.5-flash").strip()
 
-if not GEMINI_API_KEY:
+DEV_MODE = os.getenv("DEV_MODE", "0") == "1"
+
+if not DEV_MODE and not GEMINI_API_KEY:
     raise RuntimeError("❌ GEMINI_API_KEY not set")
 
-client = genai.Client(api_key=GEMINI_API_KEY)
+client = genai.Client(api_key=GEMINI_API_KEY) if not DEV_MODE else None
 
 # ======================
 # Unified Prompt
@@ -59,6 +61,19 @@ send_email slots 範例：
 # Main function
 # ======================
 def parse_intent(command: str) -> dict:
+    # ===== DEV MODE：不打 API（本地測試用）=====
+    if DEV_MODE:
+        if any(word in command for word in ["寄信", "寄", "信"]):
+            return {
+                "intent": "send_email",
+                "slots": {
+                    "recipient": "主管" if "主管" in command else None,
+                    "body": command.replace("幫我", "").replace("寄信給主管", "").strip()
+                }
+            }
+        return {"intent": "unknown", "slots": {}}
+
+    # ===== PROD MODE：Gemini 語意修復 + intent =====
     prompt = f"""
 {SYSTEM_PROMPT}
 
@@ -73,7 +88,7 @@ def parse_intent(command: str) -> dict:
 
     text = response.text.strip()
 
-    # 🔧 清除 ```json ``` 包裝（防禦型）
+    # 防禦：清掉 ```json
     if text.startswith("```"):
         text = text.strip("`")
         if text.startswith("json"):
