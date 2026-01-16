@@ -38,7 +38,7 @@ def route_action(intent_data: dict):
             return
 
         send_email_via_outlook(
-            to=recipient_email,
+            recipient=recipient_email,
             subject="通知",
             body=body
         )
