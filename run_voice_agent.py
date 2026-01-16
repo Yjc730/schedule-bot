@@ -1,56 +1,13 @@
-# run_voice_agent.py
-
-from actions.send_email import send_email_via_outlook
-from backend.intent_parser import parse_intent
-from voice.speech_to_text import listen_and_transcribe
-#from voice.wakeword import listen_wake_word
-
-CONTACTS = {
-    "主管": "boss@example.com",
-    "老闆": "boss@example.com",
-}
-
-def route_action(intent_data: dict):
-    intent = intent_data.get("intent")
-    slots = intent_data.get("slots", {})
-
-    print("🧭 Routing intent:", intent)
-    print("📦 Slots:", slots)
-
-    if intent == "send_email":
-        recipient_name = slots.get("recipient")
-        body = slots.get("body", "")
-
-        if not recipient_name:
-            print("❌ 缺少收件人")
-            return
-
-        recipient_email = CONTACTS.get(recipient_name)
-        if not recipient_email:
-            print(f"❌ 找不到聯絡人：{recipient_name}")
-            return
-
-        send_email_via_outlook(
-            to=recipient_email,
-            subject="通知",
-            body=body
-        )
-
-    else:
-        print("🤷 不知道怎麼處理這個 intent")
-        
 pending_action = None
 
 def run_voice_agent():
+    global pending_action
+
     print("🚀 Voice Agent started")
 
     while True:
-        # A-3-1：等待喚醒詞
-        #listen_wake_word()
-
         print("👂 Wake word detected!")
 
-        # A-2：語音 → 文字
         command = listen_and_transcribe()
         if not command:
             print("⚠️ 沒聽清楚，回到待命")
@@ -58,13 +15,40 @@ def run_voice_agent():
 
         print("📝 Command:", command)
 
-        # B：Intent
-        intent_data = parse_intent(command)
+        # ===== 狀態 1：目前沒有待確認的動作 =====
+        if pending_action is None:
+            intent_data = parse_intent(command)
+            intent = intent_data.get("intent")
 
-        # C：Action
-        route_action(intent_data)
+            if intent == "send_email":
+                pending_action = intent_data
 
-        print("🔁 回到待命狀態\n")
+                recipient = intent_data["slots"].get("recipient", "對方")
+                body = intent_data["slots"].get("body", "")
 
-if __name__ == "__main__":
-    run_voice_agent()
+                print(
+                    f"🗣️ 你是要寄信給「{recipient}」，"
+                    f"內容是「{body}」，對嗎？"
+                )
+                continue
+
+            else:
+                route_action(intent_data)
+                print("🔁 回到待命狀態\n")
+                continue
+
+        # ===== 狀態 2：正在等使用者確認 =====
+        else:
+            if any(word in command for word in CONFIRM_WORDS):
+                print("✅ 使用者確認，執行動作")
+                route_action(pending_action)
+                pending_action = None
+
+            elif any(word in command for word in CANCEL_WORDS):
+                print("❌ 使用者取消操作")
+                pending_action = None
+
+            else:
+                print("🤔 我沒聽懂，請回答「對」或「取消」")
+
+            print("🔁 回到待命狀態\n")
