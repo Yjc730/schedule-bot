@@ -38,6 +38,8 @@ def route_action(intent_data: dict):
 
     else:
         print("🤷 不知道怎麼處理這個 intent")
+        
+pending_action = None
 
 def run_voice_agent():
     print("🚀 Voice Agent started")
