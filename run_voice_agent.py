@@ -8,7 +8,7 @@ def run_voice_agent():
     while True:
         print("👂 Wake word detected!")
 
-        command = listen_and_transcribe()
+        command = input("⌨️ 輸入指令：")
         if not command:
             print("⚠️ 沒聽清楚，回到待命")
             continue
