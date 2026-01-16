@@ -3,7 +3,7 @@
 from actions.send_email import send_email_via_outlook
 from backend.intent_parser import parse_intent
 from voice.speech_to_text import listen_and_transcribe
-from voice.wakeword import listen_wake_word
+#from voice.wakeword import listen_wake_word
 
 CONTACTS = {
     "主管": "boss@example.com",
