@@ -596,6 +596,7 @@
   const historyList = document.getElementById("historyList");
   const clearHistoryBtn = document.getElementById("clearHistory");
 
+  let pendingVoiceAction = null;
   /* =========================
      Theme (保留功能)
   ========================= */
@@ -663,15 +664,18 @@ let lastTranscript = "";
 function resetMicUI() {
   isListening = false;
   lastTranscript = "";
-  
+
   micBtn.textContent = "🎤 語音輸入";
   micBtn.classList.remove("voice-on");
   sendBtn.disabled = false;
 
-  // ⭐ 還原 Listening UI
   inputEl.placeholder = defaultPlaceholder;
   inputEl.classList.remove("listening");
+
+  // ⭐ 關鍵：確認中就不要重置
+  if (pendingVoiceAction) return;
 }
+
 
 
 if (recog) {
@@ -681,6 +685,10 @@ if (recog) {
 
   // 🎤 點擊麥克風：開始 / 停止
   micBtn.onclick = () => {
+    if (pendingVoiceAction) {
+  alert("請先確認或取消目前的操作");
+  return;
+}
     if (!isListening) {
       try {
         recog.start();
@@ -730,7 +738,16 @@ if (recog) {
         body: JSON.stringify({ text })
       });
       const data = await res.json();
-      renderMessage("assistant", data.reply);
+      
+      if (data.need_confirm) {
+        pendingVoiceAction = {
+          action: data.action,
+          slots: data.slots
+        };
+        renderConfirmUI(data.reply);
+      } else {
+        renderMessage("assistant", `✅ 已完成操作\n${data.reply}`);
+      }
     } catch (err) {
       console.error(err);
       renderMessage("assistant", "❌ 語音指令處理失敗");
@@ -927,9 +944,63 @@ if (recog) {
     u.lang = "zh-TW";
     window.speechSynthesis.speak(u);
   }
+  function renderConfirmUI(text) {
+  const row = document.createElement("div");
+  row.className = "message assistant";
+
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+
+  const textDiv = document.createElement("div");
+  textDiv.textContent = text;
+  bubble.appendChild(textDiv);
+
+  const btns = document.createElement("div");
+  btns.style.marginTop = "10px";
+  btns.style.display = "flex";
+  btns.style.gap = "8px";
+
+  const ok = document.createElement("button");
+  ok.textContent = "✅ 確認";
+  ok.onclick = confirmVoiceAction;
+
+  const cancel = document.createElement("button");
+  cancel.textContent = "❌ 取消";
+  cancel.onclick = () => {
+    pendingVoiceAction = null;
+    renderMessage("assistant", "好，已取消 👍");
+  };
+
+  btns.appendChild(ok);
+  btns.appendChild(cancel);
+  bubble.appendChild(btns);
+
+  row.appendChild(bubble);
+  chatEl.appendChild(row);
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+
+async function confirmVoiceAction() {
+  if (!pendingVoiceAction) return;
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/voice-confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(pendingVoiceAction)
+    });
+    const data = await res.json();
+    renderMessage("assistant", data.reply);
+  } catch (e) {
+    renderMessage("assistant", "❌ 執行失敗");
+  } finally {
+    pendingVoiceAction = null;
+  }
+}
 </script>
 </body>
 </html>
+
 
 
 
