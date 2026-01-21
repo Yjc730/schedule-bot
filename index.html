@@ -646,13 +646,21 @@
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 const recog = SR ? new SR() : null;
 
+if (!navigator.mediaDevices || !recog) {
+  micBtn.disabled = true;
+  micBtn.textContent = "🎤 不支援語音";
+}
+  
 let isListening = false;
 let lastTranscript = "";
 
 function resetMicUI() {
   isListening = false;
+  lastTranscript = "";
   micBtn.textContent = "🎤 語音輸入";
   micBtn.classList.remove("voice-on");
+
+  sendBtn.disabled = false;
 }
 
 if (recog) {
@@ -668,6 +676,7 @@ if (recog) {
         isListening = true;
         micBtn.textContent = "🛑 停止語音";
         micBtn.classList.add("voice-on");
+        sendBtn.disabled = true;   // ⭐ 新增
       } catch (e) {
         console.warn("Speech start error", e);
       }
@@ -873,6 +882,7 @@ if (recog) {
 </script>
 </body>
 </html>
+
 
 
 
