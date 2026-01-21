@@ -433,5 +433,49 @@ async def chat(
     trim_memory()
     return ChatResponse(reply=reply)
 
+def handle_text_query(message: str) -> str:
+    """
+    給 CLI / 其他入口用的純文字查詢（不含檔案）
+    不影響現有 /chat API
+    """
+    if not client:
+        return "❌ 後端尚未設定 GEMINI_API_KEY"
+
+    message = (message or "").strip()
+    if not message:
+        return "請輸入問題喔！"
+
+    chat_memory.append({"role": "user", "content": message})
+    trim_memory()
+
+    system = """
+你是一個自然、口語化、但回答有重點的 AI 助理，請使用繁體中文。
+"""
+
+    convo = [system]
+    for m in chat_memory[-10:]:
+        if m["role"] == "user":
+            convo.append(f"使用者：{m['content']}")
+        elif m["role"] == "assistant":
+            convo.append(f"助理：{m['content']}")
+
+    convo.append(f"使用者：{message}")
+
+    tools = None
+    if ENABLE_WEB_SEARCH and should_use_web_search(message):
+        tools = web_search_tools() or None
+
+    reply = safe_generate_content(
+        model=MODEL_TEXT,
+        contents=convo,
+        tools=tools,
+    )
+
+    chat_memory.append({"role": "assistant", "content": reply})
+    trim_memory()
+
+    return reply
+
+
 
 
