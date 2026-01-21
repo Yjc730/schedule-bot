@@ -686,7 +686,7 @@ if (recog) {
   // 🎤 點擊麥克風：開始 / 停止
   micBtn.onclick = () => {
     if (pendingVoiceAction) {
-  alert("請先確認或取消目前的操作");
+  renderMessage("assistant", "請直接說「對」或「取消」");
   return;
 }
     if (!isListening) {
@@ -1027,6 +1027,7 @@ async function confirmVoiceAction() {
 </script>
 </body>
 </html>
+
 
 
 
