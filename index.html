@@ -719,40 +719,67 @@ if (recog) {
     return keywords.some(k => text.includes(k));
   }
   
-  async function smartSend(text){
-    // 顯示使用者語音內容
-    renderMessage("user", text);
-  
-    // 不是動作 → 當一般聊天
-    if (!isActionCommand(text)) {
-      inputEl.value = text;
-      sendBtn.click();   // ✅ 走你原本 /chat
+async function smartSend(text) {
+  renderMessage("user", text);
+
+  // =========================
+  // ✅ 如果正在等確認
+  // =========================
+  if (pendingVoiceAction) {
+    if (["對", "好", "確認", "是"].some(k => text.includes(k))) {
+      // 👉 使用者確認
+      try {
+        const res = await fetch(`${API_BASE_URL}/voice-confirm`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(pendingVoiceAction)
+        });
+        const data = await res.json();
+        renderMessage("assistant", data.reply);
+      } catch (e) {
+        renderMessage("assistant", "❌ 確認失敗");
+      }
+      pendingVoiceAction = null;
       return;
     }
-  
-    // 是動作 → 走 voice-command
-    try {
-      const res = await fetch(`${API_BASE_URL}/voice-command`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text })
-      });
-      const data = await res.json();
-      
-      if (data.need_confirm) {
-        pendingVoiceAction = {
-          action: data.action,
-          slots: data.slots
-        };
-        renderConfirmUI(data.reply);
-      } else {
-        renderMessage("assistant", `✅ 已完成操作\n${data.reply}`);
-      }
-    } catch (err) {
-      console.error(err);
-      renderMessage("assistant", "❌ 語音指令處理失敗");
+
+    if (["取消", "不要", "算了"].some(k => text.includes(k))) {
+      renderMessage("assistant", "❌ 已取消操作");
+      pendingVoiceAction = null;
+      return;
     }
+
+    // 其他話 → 提醒
+    renderMessage("assistant", "請回答「對」或「取消」");
+    return;
   }
+
+  // =========================
+  // 一般語音流程
+  // =========================
+  try {
+    const res = await fetch(`${API_BASE_URL}/voice-command`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text })
+    });
+    const data = await res.json();
+
+    renderMessage("assistant", data.reply);
+
+    // ⭐ 如果需要確認 → 存起來
+    if (data.need_confirm) {
+      pendingVoiceAction = {
+        action: data.action,
+        slots: data.slots
+      };
+    }
+
+  } catch (err) {
+    renderMessage("assistant", "❌ 語音指令處理失敗");
+  }
+}
+
   
   recog.onresult = e => {
     const text = e.results[0][0].transcript.trim();
@@ -1000,6 +1027,7 @@ async function confirmVoiceAction() {
 </script>
 </body>
 </html>
+
 
 
 
