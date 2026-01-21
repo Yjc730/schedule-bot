@@ -572,7 +572,7 @@ class VoiceConfirmRequest(BaseModel):
 class VoiceConfirmResponse(BaseModel):
     reply: str
 
-from actions.send_email import send_email_via_outlook
+from ..actions.send_email import send_email_via_outlook
 
 CONTACTS = {
     "主管": "boss@example.com",
@@ -617,6 +617,7 @@ async def voice_confirm(req: VoiceConfirmRequest):
 # (NO router needed here)
 # voice APIs are defined in this file
 # =========================
+
 
 
 
