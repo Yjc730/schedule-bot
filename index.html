@@ -702,15 +702,29 @@ if (recog) {
   };
 
   // 🎯 辨識成功
-  recog.onresult = e => {
+  recog.onresult = async e => {
     const text = e.results[0][0].transcript.trim();
     if (!text || text === lastTranscript) return;
-
+  
     lastTranscript = text;
-    inputEl.value = text;
-
-    // ⭐ 像 Siri：自動送出
-    sendBtn.click();
+  
+    // 顯示使用者語音內容
+    renderMessage("user", text);
+  
+    try {
+      const res = await fetch(`${API_BASE_URL}/voice-command`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text })
+      });
+  
+      const data = await res.json();
+  
+      renderMessage("assistant", data.reply);
+    } catch (err) {
+      console.error(err);
+      renderMessage("assistant", "❌ 語音指令處理失敗");
+    }
   };
 
   // ⛔ 發生錯誤
@@ -898,6 +912,7 @@ if (recog) {
 </script>
 </body>
 </html>
+
 
 
 
