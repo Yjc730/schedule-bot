@@ -2,6 +2,7 @@
 
 from actions.send_email import send_email_via_outlook
 from backend.intent_parser import parse_intent
+from backend.main import handle_text_query
 
 # ===== 聯絡人 =====
 CONTACTS = {
@@ -80,9 +81,12 @@ def run_voice_agent():
                 continue
 
             else:
-                route_action(intent_data)
+                # ⭐ 新增這裡：不是 action，就當聊天
+                reply = handle_text_query(command)
+                print("🤖", reply)
                 print("🔁 回到待命狀態\n")
                 continue
+
 
         # ===== 狀態 2：等待確認 / 取消 =====
         else:
