@@ -701,30 +701,48 @@ if (recog) {
     }
   };
 
-  // 🎯 辨識成功
-  recog.onresult = async e => {
-    const text = e.results[0][0].transcript.trim();
-    if (!text || text === lastTranscript) return;
+
+
+  function isActionCommand(text){
+    const keywords = [
+      "寄信", "幫我寄", "寫信給", "寄一封信",
+      "開outlook", "開信"
+    ];
+    return keywords.some(k => text.includes(k));
+  }
   
-    lastTranscript = text;
-  
+  async function smartSend(text){
     // 顯示使用者語音內容
     renderMessage("user", text);
   
+    // 不是動作 → 當一般聊天
+    if (!isActionCommand(text)) {
+      inputEl.value = text;
+      sendBtn.click();   // ✅ 走你原本 /chat
+      return;
+    }
+  
+    // 是動作 → 走 voice-command
     try {
       const res = await fetch(`${API_BASE_URL}/voice-command`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text })
       });
-  
       const data = await res.json();
-  
       renderMessage("assistant", data.reply);
     } catch (err) {
       console.error(err);
       renderMessage("assistant", "❌ 語音指令處理失敗");
     }
+  }
+  
+  recog.onresult = e => {
+    const text = e.results[0][0].transcript.trim();
+    if (!text || text === lastTranscript) return;
+  
+    lastTranscript = text;
+    smartSend(text);
   };
 
   // ⛔ 發生錯誤
@@ -912,6 +930,7 @@ if (recog) {
 </script>
 </body>
 </html>
+
 
 
 
