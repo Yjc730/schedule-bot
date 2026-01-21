@@ -566,5 +566,54 @@ async def voice_command(req: VoiceCommandRequest):
         need_confirm=False
     )
 
+class VoiceConfirmRequest(BaseModel):
+    action: str
+    slots: dict
+
+class VoiceConfirmResponse(BaseModel):
+    reply: str
+
+from actions.send_email import send_email_via_outlook
+
+CONTACTS = {
+    "主管": "boss@example.com",
+    "老闆": "boss@example.com",
+}
+
+@app.post("/voice-confirm", response_model=VoiceConfirmResponse)
+async def voice_confirm(req: VoiceConfirmRequest):
+    action = req.action
+    slots = req.slots or {}
+
+    # ===== 寄信 =====
+    if action == "send_email":
+        recipient_name = slots.get("recipient")
+        body = slots.get("body", "")
+
+        if not recipient_name:
+            return VoiceConfirmResponse(
+                reply="❌ 找不到收件人，已取消操作"
+            )
+
+        recipient_email = CONTACTS.get(recipient_name)
+        if not recipient_email:
+            return VoiceConfirmResponse(
+                reply=f"❌ 我不知道「{recipient_name}」是誰"
+            )
+
+        try:
+            send_email_via_outlook(recipient_email, body)
+            return VoiceConfirmResponse(
+                reply=f"✅ 已幫你寄信給「{recipient_name}」"
+            )
+        except Exception as e:
+            return VoiceConfirmResponse(
+                reply=f"❌ 寄信失敗：{str(e)}"
+            )
+
+    return VoiceConfirmResponse(
+        reply="🤷 這個操作我還不會"
+    )
+
 
 
