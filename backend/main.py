@@ -262,12 +262,13 @@ def chunk_text(text: str, chunk_size=500, overlap=100):
 
 
 def embed_texts(texts):
+    if not client:
+        return [[0.0] * 768 for _ in texts]  # dummy embedding，避免 crash
     res = client.models.embed_content(
         model="text-embedding-004",
         content=texts
     )
     return [e.values for e in res.embeddings]
-
 
 def cosine_similarity(a, b):
     a = np.array(a)
@@ -526,8 +527,6 @@ def handle_text_query(message: str) -> str:
 
     return reply
 
-    from backend.voice_api import router as voice_router
-    app.include_router(voice_router)
 
 @app.post("/voice-command", response_model=VoiceCommandResponse)
 async def voice_command(req: VoiceCommandRequest):
@@ -614,6 +613,11 @@ async def voice_confirm(req: VoiceConfirmRequest):
     return VoiceConfirmResponse(
         reply="🤷 這個操作我還不會"
     )
+# =========================
+# (NO router needed here)
+# voice APIs are defined in this file
+# =========================
+
 
 
 
