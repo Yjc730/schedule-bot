@@ -47,6 +47,14 @@ app.add_middleware(
 # =========================
 class ChatResponse(BaseModel):
     reply: str
+class VoiceCommandRequest(BaseModel):
+    text: str
+
+class VoiceCommandResponse(BaseModel):
+    reply: str
+    need_confirm: bool = True
+    action: Optional[str] = None
+    slots: Optional[dict] = None
 
 
 # =========================
@@ -154,6 +162,34 @@ def make_part_from_bytes(data: bytes, mime: str) -> "types.Part":
         # fallback：舊版/不同簽名
         return types.Part.from_bytes(data, mime)
 
+def parse_voice_intent(text: str) -> dict:
+    """
+    非 LLM 的保守版解析（一定過）
+    """
+    if "寄信" in text or "寫信" in text:
+        recipient = None
+
+        if "主管" in text:
+            recipient = "主管"
+        elif "老闆" in text:
+            recipient = "老闆"
+
+        # 超保守：把「寄信給XXX」後面的當內容
+        body = text
+        body = re.sub(r"幫我|請|寄信給.*?[,，]?", "", body).strip()
+
+        return {
+            "intent": "send_email",
+            "slots": {
+                "recipient": recipient,
+                "body": body
+            }
+        }
+
+    return {
+        "intent": "chat",
+        "slots": {}
+    }
 
 import time
 import random
@@ -492,4 +528,43 @@ def handle_text_query(message: str) -> str:
 
     from backend.voice_api import router as voice_router
     app.include_router(voice_router)
+
+@app.post("/voice-command", response_model=VoiceCommandResponse)
+async def voice_command(req: VoiceCommandRequest):
+    text = (req.text or "").strip()
+    if not text:
+        return VoiceCommandResponse(
+            reply="我沒有聽清楚，可以再說一次嗎？",
+            need_confirm=False
+        )
+
+    intent_data = parse_voice_intent(text)
+    intent = intent_data["intent"]
+    slots = intent_data.get("slots", {})
+
+    # ===== 寄信流程（確認階段）=====
+    if intent == "send_email":
+        recipient = slots.get("recipient") or "對方"
+        body = slots.get("body") or ""
+
+        reply = (
+            f"你要寄信給「{recipient}」，"
+            f"內容是「{body}」，對嗎？"
+        )
+
+        return VoiceCommandResponse(
+            reply=reply,
+            need_confirm=True,
+            action="send_email",
+            slots=slots
+        )
+
+    # ===== 不是動作 → 當一般聊天 =====
+    reply = handle_text_query(text)
+    return VoiceCommandResponse(
+        reply=reply,
+        need_confirm=False
+    )
+
+
 
