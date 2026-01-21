@@ -433,11 +433,19 @@ async def chat(
     trim_memory()
     return ChatResponse(reply=reply)
 
+# =========================
+# Shared Core (Text-only)
+# 給 CLI / Voice Agent / 未來 WebSocket 用
+# 不影響現有 /chat API
+# =========================
 def handle_text_query(message: str) -> str:
     """
-    給 CLI / 其他入口用的純文字查詢（不含檔案）
-    不影響現有 /chat API
+    純文字查詢入口（不含圖片 / PDF）
+    - 共用既有 chat_memory
+    - 共用 Gemini 設定、工具、web search
+    - 不動 FastAPI /chat 行為
     """
+
     if not client:
         return "❌ 後端尚未設定 GEMINI_API_KEY"
 
@@ -445,6 +453,7 @@ def handle_text_query(message: str) -> str:
     if not message:
         return "請輸入問題喔！"
 
+    # ---- 記憶：user ----
     chat_memory.append({"role": "user", "content": message})
     trim_memory()
 
@@ -453,11 +462,15 @@ def handle_text_query(message: str) -> str:
 """
 
     convo = [system]
+
+    # ---- 最近對話記憶 ----
     for m in chat_memory[-10:]:
         if m["role"] == "user":
             convo.append(f"使用者：{m['content']}")
         elif m["role"] == "assistant":
             convo.append(f"助理：{m['content']}")
+        elif m["role"] == "file":
+            convo.append(f"（先前檔案摘要）：{m.get('summary','')}")
 
     convo.append(f"使用者：{message}")
 
@@ -471,11 +484,8 @@ def handle_text_query(message: str) -> str:
         tools=tools,
     )
 
+    # ---- 記憶：assistant ----
     chat_memory.append({"role": "assistant", "content": reply})
     trim_memory()
 
     return reply
-
-
-
-
