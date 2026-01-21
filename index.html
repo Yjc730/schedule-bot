@@ -475,6 +475,10 @@
     body.light textarea{
       background: rgba(255,255,255,0.72);
     }
+    textarea.listening {
+      border-color: rgba(34,211,238,0.55);
+      box-shadow: 0 0 0 4px rgba(34,211,238,0.15);
+   }
     textarea:focus{
       border-color: rgba(34,211,238,0.40);
       box-shadow: 0 0 0 4px rgba(34,211,238,0.10);
@@ -645,6 +649,8 @@
 ========================= */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 const recog = SR ? new SR() : null;
+const defaultPlaceholder = inputEl.placeholder;
+
 
 if (!navigator.mediaDevices || !recog) {
   micBtn.disabled = true;
@@ -657,11 +663,16 @@ let lastTranscript = "";
 function resetMicUI() {
   isListening = false;
   lastTranscript = "";
+  
   micBtn.textContent = "🎤 語音輸入";
   micBtn.classList.remove("voice-on");
-
   sendBtn.disabled = false;
+
+  // ⭐ 還原 Listening UI
+  inputEl.placeholder = defaultPlaceholder;
+  inputEl.classList.remove("listening");
 }
+
 
 if (recog) {
   recog.lang = "zh-TW";
@@ -677,6 +688,11 @@ if (recog) {
         micBtn.textContent = "🛑 停止語音";
         micBtn.classList.add("voice-on");
         sendBtn.disabled = true;   // ⭐ 新增
+
+        // ⭐ Listening UI
+        inputEl.placeholder = "🎙 Listening…";
+        inputEl.classList.add("listening");
+        
       } catch (e) {
         console.warn("Speech start error", e);
       }
@@ -882,6 +898,7 @@ if (recog) {
 </script>
 </body>
 </html>
+
 
 
 
