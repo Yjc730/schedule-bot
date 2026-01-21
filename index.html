@@ -800,10 +800,19 @@ async function smartSend(text) {
     resetMicUI();
   };
 
-  // ✅ 結束監聽
   recog.onend = () => {
-    resetMicUI();
-  };
+  // ⭐ 如果正在等確認，自動繼續聽
+  if (pendingVoiceAction) {
+    try {
+      recog.start();
+    } catch (e) {
+      console.warn("Restart listen failed", e);
+    }
+    return;
+  }
+
+  resetMicUI();
+};
 
 } else {
   micBtn.disabled = true;
@@ -1027,6 +1036,7 @@ async function confirmVoiceAction() {
 </script>
 </body>
 </html>
+
 
 
 
