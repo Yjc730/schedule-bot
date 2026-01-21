@@ -1,6 +1,10 @@
 import os
 import base64
 import re
+import sys
+
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
 from typing import List, Dict, Optional, Union, Any
 
 from fastapi import FastAPI, UploadFile, File, Form
@@ -572,7 +576,7 @@ class VoiceConfirmRequest(BaseModel):
 class VoiceConfirmResponse(BaseModel):
     reply: str
 
-from ..actions.send_email import send_email_via_outlook
+from actions.send_email import send_email_via_outlook
 
 CONTACTS = {
     "主管": "boss@example.com",
@@ -617,6 +621,7 @@ async def voice_confirm(req: VoiceConfirmRequest):
 # (NO router needed here)
 # voice APIs are defined in this file
 # =========================
+
 
 
 
