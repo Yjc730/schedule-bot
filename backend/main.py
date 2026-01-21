@@ -489,3 +489,7 @@ def handle_text_query(message: str) -> str:
     trim_memory()
 
     return reply
+
+    from backend.voice_api import router as voice_router
+    app.include_router(voice_router)
+
