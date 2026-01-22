@@ -683,6 +683,10 @@ if (recog) {
   recog.interimResults = false;
   recog.maxAlternatives = 1;
 
+  recog.onstart = () => {
+    console.log("🎤 recognition STARTED");
+  };
+  
   // 🎤 點擊麥克風：開始 / 停止
   micBtn.onclick = () => {
     if (pendingVoiceAction) {
@@ -800,20 +804,29 @@ async function smartSend(text) {
     resetMicUI();
   };
 
-  recog.onend = () => {
-  // ⭐ 如果正在等確認，自動繼續聽
+recog.onend = () => {
+  console.log("🎤 recognition ENDED");
+
+  // 🧠 如果在等語音確認（對 / 取消）
   if (pendingVoiceAction) {
-    try {
-      recog.start();
-    } catch (e) {
-      console.warn("Restart listen failed", e);
-    }
+    console.log("🔁 waiting confirm, restart listening...");
+
+    // ⚠️ 一定要 delay，避免 Chrome 吃掉
+    setTimeout(() => {
+      try {
+        recog.start();
+      } catch (e) {
+        console.warn("Restart failed:", e);
+      }
+    }, 400);
+
     return;
   }
 
+  // ✅ 真正結束
   resetMicUI();
 };
-
+  
 } else {
   micBtn.disabled = true;
   micBtn.textContent = "🎤 此瀏覽器不支援語音輸入";
@@ -1036,6 +1049,7 @@ async function confirmVoiceAction() {
 </script>
 </body>
 </html>
+
 
 
 
