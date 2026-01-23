@@ -897,7 +897,7 @@ sendBtn.onclick = async () => {
     if (!res.ok) {
       const err = await res.text();
       console.error("API error:", err);
-      thinkingBubble.textContent = "❌ 後端錯誤：" + err;
+      renderMessage("assistant", "❌ 後端錯誤：" + err);
       return;
     }
 
@@ -1068,6 +1068,7 @@ async function confirmVoiceAction() {
 </script>
 </body>
 </html>
+
 
 
 
