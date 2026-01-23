@@ -349,7 +349,7 @@ async def reset():
 @app.post("/chat", response_model=ChatResponse)
 async def chat(
     message: str = Form(""),
-    image: Optional[UploadFile] = File(None),
+    image: List[UploadFile] = File(default_factory=list),
 ):
     if not client:
         return ChatResponse(reply="❌ 後端尚未設定 GEMINI_API_KEY")
@@ -357,86 +357,88 @@ async def chat(
     message = (message or "").strip()
 
     # =========================
-    # Case 1：有上傳檔案（圖片或 PDF）
+    # Case 1：有上傳檔案（多檔）
     # =========================
-    if image is not None:
-        file_bytes = await image.read()
-        mime = (image.content_type or "").strip().lower() or "application/octet-stream"
+    if image:
+        summaries = []
 
-        use_rag = (
-            mime == "application/pdf"
-            and len(file_bytes) > RAG_FILE_SIZE_THRESHOLD
-        )
+        for img in image:
+            file_bytes = await img.read()
+            mime = (img.content_type or "").strip().lower() or "application/octet-stream"
 
-        file_b64 = base64.b64encode(file_bytes).decode("utf-8")
-        part = make_part_from_bytes(file_bytes, mime)
+            use_rag = (
+                mime == "application/pdf"
+                and len(file_bytes) > RAG_FILE_SIZE_THRESHOLD
+            )
 
-        # (A+B) 分析圖片 / PDF（一次 Gemini 呼叫）
-        import json
-        result = safe_generate_content(
-            model=MODEL_FAST,
-            contents=[IMAGE_ANALYZE_PROMPT, part],
-        )
+            file_b64 = base64.b64encode(file_bytes).decode("utf-8")
+            part = make_part_from_bytes(file_bytes, mime)
 
-        try:
-            parsed = json.loads(result)
-            file_type = parsed.get("type", "other").lower()
-            file_summary = parsed.get("summary", "")
-        except Exception:
-            file_type = "other"
-            file_summary = result
+            result = safe_generate_content(
+                model=MODEL_FAST,
+                contents=[IMAGE_ANALYZE_PROMPT, part],
+            )
 
-        # (C) 存記憶
-        chat_memory.append({
-            "role": "file",
-            "content": message or "[使用者上傳檔案]",
-            "filename": image.filename or "uploaded",
-            "b64": file_b64,
-            "mime": mime,
-            "summary": file_summary,
-            "type": file_type,
-        })
+            try:
+                parsed = json.loads(result)
+                file_type = parsed.get("type", "other").lower()
+                file_summary = parsed.get("summary", "")
+            except Exception:
+                file_type = "other"
+                file_summary = result
+
+            chat_memory.append({
+                "role": "file",
+                "content": message or "[使用者上傳檔案]",
+                "filename": img.filename or "uploaded",
+                "b64": file_b64,
+                "mime": mime,
+                "summary": file_summary,
+                "type": file_type,
+            })
+
+            summaries.append({
+                "filename": img.filename,
+                "summary": file_summary,
+                "type": file_type,
+                "use_rag": use_rag
+            })
+
         trim_memory()
 
-        # (D) 若有提問 → 回答
+        # --- 有問題 → 跨檔回答 ---
         if message:
-            if use_rag:
-                chunks = chunk_text(file_summary)
-                embeddings = embed_texts(chunks)
-                add_to_rag_store(chunks, embeddings)
-                relevant = retrieve_relevant_chunks(message)
+            all_summaries = "\n\n".join(
+                f"【{s['filename']}】\n{s['summary']}"
+                for s in summaries
+            )
 
-                reply = safe_generate_content(
-                    model=MODEL_TEXT,
-                    contents=[
-                        RAG_ANSWER_PROMPT,
-                        "【文件片段】\n" + "\n---\n".join(relevant),
-                        f"使用者問題：{message}"
-                    ]
-                )
-            else:
-                prompt = build_file_answer_prompt(file_type)
-                convo = [
-                    prompt,
-                    f"【檔案摘要】：{file_summary}",
+            reply = safe_generate_content(
+                model=MODEL_TEXT,
+                contents=[
+                    "你正在同時閱讀多個檔案，請整合所有資訊後回答。",
+                    f"【檔案摘要集合】\n{all_summaries}",
                     f"使用者問題：{message}"
                 ]
-                reply = safe_generate_content(
-                    model=MODEL_FAST,
-                    contents=convo,
-                )
+            )
 
             chat_memory.append({"role": "assistant", "content": reply})
             trim_memory()
             return ChatResponse(reply=reply)
 
-        # 沒有提問 → 回摘要
+        # --- 沒問題 → 回摘要 ---
         return ChatResponse(
-            reply=f"✅ 已收到檔案（{image.filename}）。我整理的摘要如下：\n\n{file_summary}"
+            reply=(
+                f"✅ 已讀取 {len(summaries)} 個檔案。\n\n"
+                + "\n\n".join(
+                    f"【{s['filename']}】\n{s['summary']}"
+                    for s in summaries
+                )
+            )
         )
 
     # =========================
-    # Case 2：純文字聊天
+    # Case 2：純文字聊天（沒有檔案）
     # =========================
     if not message:
         return ChatResponse(reply="請輸入問題或上傳圖片 / PDF 喔！")
@@ -446,7 +448,6 @@ async def chat(
 
     system = """
 你是一個自然、口語化、但回答有重點的 AI 助理，請使用繁體中文。
-你會看到一段對話記憶與（可能的）檔案摘要。
 """
 
     convo = [system]
@@ -621,6 +622,7 @@ async def voice_confirm(req: VoiceConfirmRequest):
 # (NO router needed here)
 # voice APIs are defined in this file
 # =========================
+
 
 
 
