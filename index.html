@@ -847,72 +847,77 @@ recog.onend = () => {
     addHistoryLine(m);
   });
 
-  /* =========================
-     Send message (圖片 / PDF 仍用 image 參數名，不破壞後端)
-  ========================= */
-  sendBtn.onclick = async () => {
-    const text = inputEl.value.trim();
-    const file = fileInput.files;
+/* =========================
+   Send message (支援多檔圖片 / PDF)
+========================= */
+sendBtn.onclick = async () => {
+  const text = inputEl.value.trim();
+  const files = fileInput.files;   // ⭐ 正確命名
 
-    if (!text && !file) return;
+  // 沒文字、也沒檔案 → 不送
+  if (!text && files.length === 0) return;
 
-    const preview = (file && file.type && file.type.startsWith("image/"))
-      ? URL.createObjectURL(file)
-      : null;
+  // ---------- UI：使用者訊息 ----------
+  let userLabel = text;
+  if (!text && files.length > 0) {
+    userLabel = `🗂 已上傳 ${files.length} 個檔案`;
+  }
 
-    // UI: user message
-    const userLabel = text || (
-      files.length > 0
-        ? `🗂 已上傳 ${files.length} 個檔案`
-        : ""
-    );
-    renderMessage("user", userLabel, { imageUrl: preview });
+  renderMessage("user", userLabel);
 
-    // history
-    saveHistory({ role: "user", text: text || (file ? `[檔案] ${file.name}` : "") });
+  // history（簡化，不再碰 file.name）
+  saveHistory({
+    role: "user",
+    text: text || `[上傳 ${files.length} 個檔案]`
+  });
 
-    inputEl.value = "";
-    const thinkingBubble = renderMessage("assistant", "… 正在思考中", { thinking: true });
+  inputEl.value = "";
+  const thinkingBubble = renderMessage(
+    "assistant",
+    "… 正在思考中",
+    { thinking: true }
+  );
 
-    const startTime = performance.now();
+  const startTime = performance.now();
 
-    try {
-      const form = new FormData();
-      form.append("message", text);
-      
-      // ⭐ 多檔上傳
-      for (const file of files) {
-        form.append("image", file); 
-        // ⚠️ key 仍叫 image → 不破壞你後端
-      }
+  try {
+    const form = new FormData();
+    form.append("message", text);
 
-      const res = await fetch(`${API_BASE_URL}/chat`, {
-  method: "POST",
-  body: form,
-});
+    // ⭐⭐ 多檔關鍵：同名 key 重複 append
+    for (const file of files) {
+      form.append("image", file);
+    }
+
+    const res = await fetch(`${API_BASE_URL}/chat`, {
+      method: "POST",
+      body: form,
+    });
 
     if (!res.ok) {
       const err = await res.text();
-      throw new Error(err || res.statusText);
-        }
-
-      const data = await res.json(); 
-      const replyText = (data && data.reply) ? data.reply : "";
-      const cost = ((performance.now() - startTime) / 1000).toFixed(2);
-
-      // remove thinking
-      thinkingBubble.parentElement.remove();
-
-      // AI tag + typewriter + meta
-      typeWriter(replyText, cost);
-
-    } catch (e) {
-      console.error(e);
-      thinkingBubble.textContent = "❌ 連線失敗，請稍後再試";
-    } finally {
-      fileInput.value = "";
+      console.error("API error:", err);
+      thinkingBubble.textContent = "❌ 後端錯誤：" + err;
+      return;
     }
-  };
+
+    const data = await res.json();
+    const replyText = data?.reply || "";
+    const cost = ((performance.now() - startTime) / 1000).toFixed(2);
+
+    // 移除 thinking
+    thinkingBubble.parentElement.remove();
+
+    // AI 回答
+    typeWriter(replyText, cost);
+
+  } catch (e) {
+    console.error(e);
+    thinkingBubble.textContent = "❌ 連線失敗，請稍後再試";
+  } finally {
+    fileInput.value = ""; // 清空檔案
+  }
+};
 
   /* =========================
      Render
@@ -1063,6 +1068,7 @@ async function confirmVoiceAction() {
 </script>
 </body>
 </html>
+
 
 
 
