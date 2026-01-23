@@ -565,7 +565,12 @@
       <div class="input-row">
         <label class="file-label" title="上傳圖片 / PDF">
           📎
-          <input type="file" id="fileInput" accept="image/*,.pdf,application/pdf" />
+          <input
+            type="file"
+            id="fileInput"
+            accept="image/*,.pdf,application/pdf"
+            multiple
+          />
         </label>
         <textarea id="input" rows="2" placeholder="輸入文字或用語音…（支援圖片/PDF）"></textarea>
       </div>
@@ -847,7 +852,7 @@ recog.onend = () => {
   ========================= */
   sendBtn.onclick = async () => {
     const text = inputEl.value.trim();
-    const file = fileInput.files[0];
+    const file = fileInput.files;
 
     if (!text && !file) return;
 
@@ -856,7 +861,11 @@ recog.onend = () => {
       : null;
 
     // UI: user message
-    const userLabel = text || (file ? `🗂 上傳檔案：${file.name}` : "");
+    const userLabel = text || (
+      files.length > 0
+        ? `🗂 已上傳 ${files.length} 個檔案`
+        : ""
+    );
     renderMessage("user", userLabel, { imageUrl: preview });
 
     // history
@@ -870,7 +879,12 @@ recog.onend = () => {
     try {
       const form = new FormData();
       form.append("message", text);
-      if (file) form.append("image", file); // ✅ 後端仍叫 image（可為圖片或 PDF）
+      
+      // ⭐ 多檔上傳
+      for (const file of files) {
+        form.append("image", file); 
+        // ⚠️ key 仍叫 image → 不破壞你後端
+      }
 
       const res = await fetch(`${API_BASE_URL}/chat`, {
   method: "POST",
@@ -1049,6 +1063,7 @@ async function confirmVoiceAction() {
 </script>
 </body>
 </html>
+
 
 
 
