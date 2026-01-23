@@ -359,7 +359,7 @@ async def chat(
     # =========================
     # Case 1：有上傳檔案（多檔）
     # =========================
-    if image:
+    if image and len(image) > 0:
         summaries = []
 
         for img in image:
@@ -622,6 +622,7 @@ async def voice_confirm(req: VoiceConfirmRequest):
 # (NO router needed here)
 # voice APIs are defined in this file
 # =========================
+
 
 
 
