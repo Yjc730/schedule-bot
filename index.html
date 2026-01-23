@@ -852,41 +852,32 @@ recog.onend = () => {
 ========================= */
 sendBtn.onclick = async () => {
   const text = inputEl.value.trim();
-  const files = fileInput.files;   // ⭐ 正確命名
+  const files = Array.from(fileInput.files); // ⭐ 關鍵
 
-  // 沒文字、也沒檔案 → 不送
   if (!text && files.length === 0) return;
 
-  // ---------- UI：使用者訊息 ----------
-  let userLabel = text;
-  if (!text && files.length > 0) {
-    userLabel = `🗂 已上傳 ${files.length} 個檔案`;
-  }
-
+  // UI
+  const userLabel =
+    text || `🗂 已上傳 ${files.length} 個檔案`;
   renderMessage("user", userLabel);
 
-  // history（簡化，不再碰 file.name）
   saveHistory({
     role: "user",
     text: text || `[上傳 ${files.length} 個檔案]`
   });
 
-  inputEl.value = "";
   const thinkingBubble = renderMessage(
     "assistant",
     "… 正在思考中",
     { thinking: true }
   );
 
-  const startTime = performance.now();
-
   try {
     const form = new FormData();
     form.append("message", text);
 
-    // ⭐⭐ 多檔關鍵：同名 key 重複 append
     for (const file of files) {
-      form.append("image", file);
+      form.append("image", file); // 同名 key ✔
     }
 
     const res = await fetch(`${API_BASE_URL}/chat`, {
@@ -895,27 +886,20 @@ sendBtn.onclick = async () => {
     });
 
     if (!res.ok) {
-      const err = await res.text();
-      console.error("API error:", err);
-      renderMessage("assistant", "❌ 後端錯誤：" + err);
-      return;
+      throw new Error(await res.text());
     }
 
     const data = await res.json();
-    const replyText = data?.reply || "";
-    const cost = ((performance.now() - startTime) / 1000).toFixed(2);
-
-    // 移除 thinking
     thinkingBubble.parentElement.remove();
-
-    // AI 回答
-    typeWriter(replyText, cost);
+    typeWriter(data.reply || "", "—");
 
   } catch (e) {
-    console.error(e);
     thinkingBubble.textContent = "❌ 連線失敗，請稍後再試";
+    console.error(e);
   } finally {
-    fileInput.value = ""; // 清空檔案
+    // ⭐ 最後才清
+    inputEl.value = "";
+    fileInput.value = "";
   }
 };
 
@@ -1068,6 +1052,7 @@ async function confirmVoiceAction() {
 </script>
 </body>
 </html>
+
 
 
 
