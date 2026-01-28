@@ -588,7 +588,7 @@
   const chatEl = document.getElementById("chat");
   const inputEl = document.getElementById("input");
   const fileInput = document.getElementById("fileInput");
-
+  const defaultPlaceholder = inputEl.placeholder;
   const sendBtn = document.getElementById("send");
   const micBtn = document.getElementById("mic");
 
@@ -602,6 +602,19 @@
   const clearHistoryBtn = document.getElementById("clearHistory");
 
   let pendingVoiceAction = null;
+
+/* =========================
+   File input UX（選檔提示）
+========================= */
+fileInput.onchange = () => {
+  if (fileInput.files.length > 0) {
+    inputEl.placeholder =
+      `📎 已選 ${fileInput.files.length} 個檔案，可直接輸入問題`;
+  } else {
+    inputEl.placeholder = defaultPlaceholder;
+  }
+};
+
   /* =========================
      Theme (保留功能)
   ========================= */
@@ -655,7 +668,7 @@
 ========================= */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 const recog = SR ? new SR() : null;
-const defaultPlaceholder = inputEl.placeholder;
+
 
 
 if (!navigator.mediaDevices || !recog) {
@@ -812,30 +825,22 @@ async function smartSend(text) {
 recog.onend = () => {
   console.log("🎤 recognition ENDED");
 
-  // 🧠 如果在等語音確認（對 / 取消）
+  // ✅ 如果正在等使用者說「對 / 取消」
   if (pendingVoiceAction) {
-    console.log("🔁 waiting confirm, restart listening...");
-
-    // ⚠️ 一定要 delay，避免 Chrome 吃掉
-    setTimeout(() => {
-      try {
-        recog.start();
-      } catch (e) {
-        console.warn("Restart failed:", e);
-      }
-    }, 400);
-
+    console.log("⏸ waiting confirm, stop recognition");
+    resetMicUI();
     return;
   }
 
-  // ✅ 真正結束
   resetMicUI();
 };
+
   
-} else {
-  micBtn.disabled = true;
-  micBtn.textContent = "🎤 此瀏覽器不支援語音輸入";
-}
+    
+  } else {
+    micBtn.disabled = true;
+    micBtn.textContent = "🎤 此瀏覽器不支援語音輸入";
+  }
 
 
   /* =========================
@@ -866,11 +871,21 @@ sendBtn.onclick = async () => {
     text: text || `[上傳 ${files.length} 個檔案]`
   });
 
-  const thinkingBubble = renderMessage(
-    "assistant",
-    "… 正在思考中",
-    { thinking: true }
-  );
+  let thinkingBubble;
+
+  if (files.length > 0) {
+    thinkingBubble = renderMessage(
+      "assistant",
+      `📂 正在分析 ${files.length} 個檔案，請稍候…`,
+      { thinking: true }
+    );
+  } else {
+    thinkingBubble = renderMessage(
+      "assistant",
+      "… 正在思考中",
+      { thinking: true }
+    );
+  }
 
   try {
     const form = new FormData();
@@ -1052,6 +1067,7 @@ async function confirmVoiceAction() {
 </script>
 </body>
 </html>
+
 
 
 
