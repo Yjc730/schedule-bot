@@ -743,7 +743,8 @@ if (recog) {
   
 async function smartSend(text) {
   renderMessage("user", text);
-
+  clearUserInput();
+  
   // =========================
   // ✅ 如果正在等確認
   // =========================
@@ -1067,6 +1068,7 @@ async function confirmVoiceAction() {
 </script>
 </body>
 </html>
+
 
 
 
