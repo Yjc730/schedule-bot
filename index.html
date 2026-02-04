@@ -880,6 +880,7 @@ sendBtn.onclick = async () => {
     const data = await res.json();
     thinkingBubble.parentElement.remove();
     typeWriter(data.reply || "", "—");
+    
     // 🟢 若 AI 已產生請假信，顯示 Outlook 寄信按鈕
     if (data.reply && data.reply.includes("請假")) {
       renderMailAction({
@@ -1025,11 +1026,11 @@ function openOutlookMail({ to, subject, body }) {
   const mailto =
     `mailto:${encodeURIComponent(to)}` +
     `?subject=${encodeURIComponent(subject)}` +
-    `&body=${encodeURIComponent(body.replace(/\n/g, "\r\n"))}`;
+    `&body=${encodeURIComponent(body)}`;
 
-  // ✅ 用 window.open，比 location.href 穩定非常多
-  window.open(mailto, "_self");
+  window.location.href = mailto;
 }
+
 
   function renderConfirmUI(text) {
   const row = document.createElement("div");
@@ -1087,6 +1088,7 @@ async function confirmVoiceAction() {
 </script>
 </body>
 </html>
+
 
 
 
