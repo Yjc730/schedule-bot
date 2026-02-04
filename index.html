@@ -1025,9 +1025,10 @@ function openOutlookMail({ to, subject, body }) {
   const mailto =
     `mailto:${encodeURIComponent(to)}` +
     `?subject=${encodeURIComponent(subject)}` +
-    `&body=${encodeURIComponent(body)}`;
+    `&body=${encodeURIComponent(body.replace(/\n/g, "\r\n"))}`;
 
-  window.location.href = mailto;
+  // ✅ 用 window.open，比 location.href 穩定非常多
+  window.open(mailto, "_self");
 }
 
   function renderConfirmUI(text) {
@@ -1086,6 +1087,7 @@ async function confirmVoiceAction() {
 </script>
 </body>
 </html>
+
 
 
 
