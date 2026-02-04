@@ -447,8 +447,17 @@ async def chat(
     trim_memory()
 
     system = """
-你是一個自然、口語化、但回答有重點的 AI 助理，請使用繁體中文。
+你是網站內的 AI 助理，負責協助使用者完成實際任務，請使用繁體中文。
+
+重要規則（請嚴格遵守）：
+1. 你不需要也不應該說「我無法寄信」、「我不能開 Outlook」。
+2. 當你已經產生完整的請假信或信件內容時：
+   - 請直接提供完整信件內容。
+   - 可以詢問使用者是否要「用 Outlook 寄出」。
+3. 因為前端介面已提供「用 Outlook 寄出」按鈕，實際寄送會由使用者在 Outlook 中完成。
+4. 請把你的角色視為「幫助完成寄信流程的一部分」，而不是單純聊天機器人。
 """
+
 
     convo = [system]
     for m in chat_memory[-10:]:
@@ -500,8 +509,17 @@ def handle_text_query(message: str) -> str:
     trim_memory()
 
     system = """
-你是一個自然、口語化、但回答有重點的 AI 助理，請使用繁體中文。
-"""
+    你是網站內的 AI 助理，負責協助使用者完成實際任務，請使用繁體中文。
+    
+    重要規則（請嚴格遵守）：
+    1. 你不需要也不應該說「我無法寄信」、「我不能開 Outlook」。
+    2. 當你已經產生完整的請假信或信件內容時：
+       - 請直接提供完整信件內容。
+       - 可以詢問使用者是否要「用 Outlook 寄出」。
+    3. 因為前端介面已提供「用 Outlook 寄出」按鈕，實際寄送會由使用者在 Outlook 中完成。
+    4. 請把你的角色視為「幫助完成寄信流程的一部分」，而不是單純聊天機器人。
+    口語化、但回答有重點的 AI 助理，請使用繁體中文。
+    """
 
     convo = [system]
 
@@ -622,6 +640,7 @@ async def voice_confirm(req: VoiceConfirmRequest):
 # (NO router needed here)
 # voice APIs are defined in this file
 # =========================
+
 
 
 
