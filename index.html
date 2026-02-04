@@ -740,91 +740,7 @@ if (recog) {
     ];
     return keywords.some(k => text.includes(k));
   }
-  
-  // =========================
-  // 1️⃣ 確認模式（對 / 取消）
-  // =========================
-  if (pendingVoiceAction) {
-    if (["對", "好", "確認", "是"].some(k => text.includes(k))) {
-      try {
-        const res = await fetch(`${API_BASE_URL}/voice-confirm`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(pendingVoiceAction)
-        });
-        const data = await res.json();
-        renderMessage("assistant", data.reply);
-      } catch {
-        renderMessage("assistant", "❌ 確認失敗");
-      }
-      pendingVoiceAction = null;
-      return;
-    }
-
-    if (["取消", "不要", "算了"].some(k => text.includes(k))) {
-      renderMessage("assistant", "❌ 已取消操作");
-      pendingVoiceAction = null;
-      return;
-    }
-
-    renderMessage("assistant", "請回答「對」或「取消」");
-    return;
-  }
-
-  // =========================
-  // 2️⃣ 如果是「指令語音」
-  // =========================
-  if (isActionCommand(text)) {
-    try {
-      const res = await fetch(`${API_BASE_URL}/voice-command`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text })
-      });
-      const data = await res.json();
-      renderMessage("assistant", data.reply);
-
-      if (data.need_confirm) {
-        pendingVoiceAction = {
-          action: data.action,
-          slots: data.slots
-        };
-      }
-    } catch {
-      renderMessage("assistant", "❌ 語音指令處理失敗");
-    }
-    return;
-  }
-
-  // =========================
-  // 3️⃣ ❗ 一般聊天語音（關鍵）
-  // =========================
-  try {
-      const thinking = renderMessage(
-     "assistant",
-     "… 正在思考中",
-     { thinking: true }
-   );
     
-    const form = new FormData();
-    form.append("message", text);
-
-    const res = await fetch(`${API_BASE_URL}/chat`, {
-      method: "POST",
-      body: form
-    });
-
-    const data = await res.json();
-    thinking.parentElement.remove();
-    typeWriter(data.reply || "", "—");
-
-  } catch {
-    renderMessage("assistant", "❌ 聊天失敗");
-  }
-}
-
-
-  
   recog.onresult = e => {
     const text = e.results[0][0].transcript.trim();
     if (!text || text === lastTranscript) return;
@@ -1089,6 +1005,7 @@ async function confirmVoiceAction() {
 </script>
 </body>
 </html>
+
 
 
 
