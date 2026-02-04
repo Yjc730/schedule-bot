@@ -744,13 +744,12 @@ if (recog) {
 async function smartSend(text) {
   renderMessage("user", text);
   clearUserInput();
-  
+
   // =========================
-  // ✅ 如果正在等確認
+  // 1️⃣ 確認模式（對 / 取消）
   // =========================
   if (pendingVoiceAction) {
     if (["對", "好", "確認", "是"].some(k => text.includes(k))) {
-      // 👉 使用者確認
       try {
         const res = await fetch(`${API_BASE_URL}/voice-confirm`, {
           method: "POST",
@@ -759,7 +758,7 @@ async function smartSend(text) {
         });
         const data = await res.json();
         renderMessage("assistant", data.reply);
-      } catch (e) {
+      } catch {
         renderMessage("assistant", "❌ 確認失敗");
       }
       pendingVoiceAction = null;
@@ -772,36 +771,55 @@ async function smartSend(text) {
       return;
     }
 
-    // 其他話 → 提醒
     renderMessage("assistant", "請回答「對」或「取消」");
     return;
   }
 
   // =========================
-  // 一般語音流程
+  // 2️⃣ 如果是「指令語音」
+  // =========================
+  if (isActionCommand(text)) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/voice-command`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text })
+      });
+      const data = await res.json();
+      renderMessage("assistant", data.reply);
+
+      if (data.need_confirm) {
+        pendingVoiceAction = {
+          action: data.action,
+          slots: data.slots
+        };
+      }
+    } catch {
+      renderMessage("assistant", "❌ 語音指令處理失敗");
+    }
+    return;
+  }
+
+  // =========================
+  // 3️⃣ ❗ 一般聊天語音（關鍵）
   // =========================
   try {
-    const res = await fetch(`${API_BASE_URL}/voice-command`, {
+    const form = new FormData();
+    form.append("message", text);
+
+    const res = await fetch(`${API_BASE_URL}/chat`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text })
+      body: form
     });
+
     const data = await res.json();
+    typeWriter(data.reply || "", "—");
 
-    renderMessage("assistant", data.reply);
-
-    // ⭐ 如果需要確認 → 存起來
-    if (data.need_confirm) {
-      pendingVoiceAction = {
-        action: data.action,
-        slots: data.slots
-      };
-    }
-
-  } catch (err) {
-    renderMessage("assistant", "❌ 語音指令處理失敗");
+  } catch {
+    renderMessage("assistant", "❌ 聊天失敗");
   }
 }
+
 
   
   recog.onresult = e => {
@@ -1068,6 +1086,7 @@ async function confirmVoiceAction() {
 </script>
 </body>
 </html>
+
 
 
 
