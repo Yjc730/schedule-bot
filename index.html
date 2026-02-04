@@ -741,10 +741,6 @@ if (recog) {
     return keywords.some(k => text.includes(k));
   }
   
-async function smartSend(text) {
-  renderMessage("user", text);
-  clearUserInput();
-
   // =========================
   // 1️⃣ 確認模式（對 / 取消）
   // =========================
@@ -804,6 +800,12 @@ async function smartSend(text) {
   // 3️⃣ ❗ 一般聊天語音（關鍵）
   // =========================
   try {
+      const thinking = renderMessage(
+     "assistant",
+     "… 正在思考中",
+     { thinking: true }
+   );
+    
     const form = new FormData();
     form.append("message", text);
 
@@ -813,6 +815,7 @@ async function smartSend(text) {
     });
 
     const data = await res.json();
+    thinking.parentElement.remove();
     typeWriter(data.reply || "", "—");
 
   } catch {
@@ -1086,6 +1089,7 @@ async function confirmVoiceAction() {
 </script>
 </body>
 </html>
+
 
 
 
