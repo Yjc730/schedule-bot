@@ -1028,9 +1028,10 @@ function openOutlookMail({ to, subject, body }) {
     `?subject=${encodeURIComponent(subject)}` +
     `&body=${encodeURIComponent(body)}`;
 
-  window.location.href = mailto;
+  const a = document.createElement("a");
+  a.href = mailto;
+  a.click(); // ✅ 100% 使用者觸發
 }
-
 
   function renderConfirmUI(text) {
   const row = document.createElement("div");
@@ -1088,6 +1089,7 @@ async function confirmVoiceAction() {
 </script>
 </body>
 </html>
+
 
 
 
