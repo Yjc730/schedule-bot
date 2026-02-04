@@ -740,12 +740,50 @@ if (recog) {
     ];
     return keywords.some(k => text.includes(k));
   }
-    
+  // =========================
+// ✅ 語音送出（跟按「送出」共用邏輯）
+// =========================
+async function smartSend(text) {
+  // 顯示使用者說的話
+  renderMessage("user", text);
+  saveHistory({ role: "user", text });
+
+  // 顯示思考中
+  const thinking = renderMessage(
+    "assistant",
+    "… 正在思考中",
+    { thinking: true }
+  );
+
+  try {
+    const form = new FormData();
+    form.append("message", text);
+
+    const res = await fetch(`${API_BASE_URL}/chat`, {
+      method: "POST",
+      body: form
+    });
+
+    if (!res.ok) {
+      throw new Error(await res.text());
+    }
+
+    const data = await res.json();
+    thinking.parentElement.remove();
+    typeWriter(data.reply || "", "—");
+
+  } catch (e) {
+    thinking.textContent = "❌ 語音處理失敗";
+    console.error(e);
+  } finally {
+    // ⭐ 語音流程結束才 reset UI
+    resetMicUI();
+  }
+}
+ 
   recog.onresult = e => {
     const text = e.results[0][0].transcript.trim();
-    if (!text || text === lastTranscript) return;
-  
-    lastTranscript = text;
+    if (!text) return;
     smartSend(text);
   };
 
@@ -766,11 +804,8 @@ recog.onend = () => {
   // ✅ 如果正在等使用者說「對 / 取消」
   if (pendingVoiceAction) {
     console.log("⏸ waiting confirm, stop recognition");
-    resetMicUI();
     return;
   }
-
-  resetMicUI();
 };
 
   
@@ -1005,6 +1040,7 @@ async function confirmVoiceAction() {
 </script>
 </body>
 </html>
+
 
 
 
