@@ -1023,14 +1023,13 @@ sendBtn.onclick = async () => {
 // 📧 開啟 Outlook 寄信
 // =========================
 function openOutlookMail({ to, subject, body }) {
-  const mailto =
-    `mailto:${encodeURIComponent(to)}` +
-    `?subject=${encodeURIComponent(subject)}` +
+  const url =
+    "https://outlook.office.com/mail/deeplink/compose" +
+    `?to=${encodeURIComponent(to)}` +
+    `&subject=${encodeURIComponent(subject)}` +
     `&body=${encodeURIComponent(body)}`;
 
-  const a = document.createElement("a");
-  a.href = mailto;
-  a.click(); // ✅ 100% 使用者觸發
+  window.open(url, "_blank");
 }
 
   function renderConfirmUI(text) {
@@ -1089,6 +1088,7 @@ async function confirmVoiceAction() {
 </script>
 </body>
 </html>
+
 
 
 
