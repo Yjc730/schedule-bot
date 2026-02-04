@@ -880,6 +880,14 @@ sendBtn.onclick = async () => {
     const data = await res.json();
     thinkingBubble.parentElement.remove();
     typeWriter(data.reply || "", "—");
+    // 🟢 若 AI 已產生請假信，顯示 Outlook 寄信按鈕
+    if (data.reply && data.reply.includes("請假")) {
+      renderMailAction({
+        to: "boss@company.com",        // 👉 先寫死，之後可讓 AI 回傳
+        subject: "請假申請",
+        body: data.reply
+      });
+    }
 
   } catch (e) {
     thinkingBubble.textContent = "❌ 連線失敗，請稍後再試";
@@ -927,6 +935,32 @@ sendBtn.onclick = async () => {
     chatEl.appendChild(row);
     chatEl.scrollTop = chatEl.scrollHeight;
     return bubble;
+  }
+  // =========================
+  // 📧 顯示「用 Outlook 寄出」按鈕
+  // =========================
+  function renderMailAction({ to, subject, body }) {
+    const row = document.createElement("div");
+    row.className = "message assistant";
+  
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+  
+    const textDiv = document.createElement("div");
+    textDiv.textContent = "📧 我已幫你整理好請假信，要用 Outlook 寄出嗎？";
+  
+    const btn = document.createElement("button");
+    btn.style.marginTop = "10px";
+    btn.textContent = "📧 用 Outlook 寄出";
+    btn.onclick = () => {
+      openOutlookMail({ to, subject, body });
+    };
+  
+    bubble.appendChild(textDiv);
+    bubble.appendChild(btn);
+    row.appendChild(bubble);
+    chatEl.appendChild(row);
+    chatEl.scrollTop = chatEl.scrollHeight;
   }
 
   function typeWriter(text, seconds) {
@@ -984,6 +1018,18 @@ sendBtn.onclick = async () => {
     u.lang = "zh-TW";
     window.speechSynthesis.speak(u);
   }
+// =========================
+// 📧 開啟 Outlook 寄信
+// =========================
+function openOutlookMail({ to, subject, body }) {
+  const mailto =
+    `mailto:${encodeURIComponent(to)}` +
+    `?subject=${encodeURIComponent(subject)}` +
+    `&body=${encodeURIComponent(body)}`;
+
+  window.location.href = mailto;
+}
+
   function renderConfirmUI(text) {
   const row = document.createElement("div");
   row.className = "message assistant";
@@ -1040,6 +1086,7 @@ async function confirmVoiceAction() {
 </script>
 </body>
 </html>
+
 
 
 
