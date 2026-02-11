@@ -1,18 +1,25 @@
+# ===== 標準函式庫 (Python built-in) =====
 import os
+import sys
 import base64
 import re
-import sys
 
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+from typing import Any, Dict, List, Optional, Union
 
-from typing import List, Dict, Optional, Union, Any
 
+# ===== 專案路徑設定 =====
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+sys.path.append(BASE_DIR)
+
+
+# ===== 第三方套件 =====
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 import google.genai as genai
 from google.genai import types
+
 
 
 # =========================
@@ -640,6 +647,7 @@ async def voice_confirm(req: VoiceConfirmRequest):
 # (NO router needed here)
 # voice APIs are defined in this file
 # =========================
+
 
 
 
