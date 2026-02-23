@@ -134,7 +134,7 @@ def make_part_from_bytes(data: bytes, mime: str) -> "types.Part":
         return types.Part.from_bytes(data, mime)
 
 # =========================
-# RAG Helpers (保留你原本的向量搜尋邏輯)
+# RAG Helpers (✅ 保留你原本的向量搜尋邏輯)
 # =========================
 rag_store = []  
 
@@ -190,7 +190,7 @@ async def reset():
     return ChatResponse(reply="✅ 已清除所有後端記憶")
 
 # =========================
-# 主要 Chat API (串流 + CSV 分析 + 寄信工具)
+# 🚀 效能大升級：極速串流直通車版 Chat API
 # =========================
 @app.post("/chat")
 async def chat(
@@ -203,81 +203,63 @@ async def chat(
         return StreamingResponse(iter(["❌ 後端尚未設定 GEMINI_API_KEY"]), media_type="text/plain")
 
     message = (message or "").strip()
-    summaries = []
+    current_turn_parts = []  # 用來存放這次上傳的「實體檔案與文字」
 
-    # 處理檔案上傳
+    # 👉 1. 極速處理：跳過耗時的預先摘要，直接把檔案準備好餵給模型
     if image and len(image) > 0:
         for img in image:
             file_bytes = await img.read()
             mime = (img.content_type or "").strip().lower() or "application/octet-stream"
             filename = img.filename.lower()
 
-            # 👉 處理 CSV 資料分析
+            # CSV 報表：瞬間文字裁切處理 (毫秒級)
             if mime == "text/csv" or filename.endswith(".csv"):
                 try:
                     file_text = file_bytes.decode("utf-8", errors="ignore")
-                    lines = file_text.split("\n")[:50] # 預覽前50行
+                    lines = file_text.split("\n")[:50] # 只取前50行預覽，避免超出 token
                     preview = "\n".join(lines)
-                    file_summary = f"這是一份名為 {img.filename} 的 CSV 資料表。以下是前 50 行的資料預覽：\n{preview}\n\n請根據這些資料進行專業分析或回答問題。"
-                    file_type = "table"
+                    current_turn_parts.append(f"【資料表 {img.filename} 內容預覽】\n{preview}")
                 except Exception as e:
-                    file_summary = f"讀取 CSV 失敗：{e}"
-                    file_type = "other"
+                    current_turn_parts.append(f"讀取 CSV 失敗：{e}")
             
-            # 👉 處理一般圖片與 PDF
+            # 圖片或 PDF：轉成 Gemini 原生 Part 格式 (毫秒級，不再中途浪費時間問 AI)
             else:
                 part = make_part_from_bytes(file_bytes, mime)
-                # 使用簡單的 generate_content 取得檔案摘要
-                res = client.models.generate_content(
-                    model=MODEL_FAST,
-                    contents=[IMAGE_ANALYZE_PROMPT, part],
-                )
-                try:
-                    parsed = json.loads(res.text)
-                    file_type = parsed.get("type", "other").lower()
-                    file_summary = parsed.get("summary", "")
-                except Exception:
-                    file_type = "other"
-                    file_summary = res.text
+                current_turn_parts.append(part)
 
+            # 歷史記憶庫「只存文字紀錄」，避免伺服器被圖檔撐爆記憶體
             current_memory.append({
                 "role": "file",
-                "content": message or "[使用者上傳檔案]",
-                "filename": img.filename or "uploaded",
-                "b64": base64.b64encode(file_bytes).decode("utf-8"),
-                "mime": mime,
-                "summary": file_summary,
-                "type": file_type,
+                "content": f"（使用者上傳了檔案: {img.filename}）",
             })
-            summaries.append(f"【{img.filename}】已讀取完成。")
 
-        trim_memory(current_memory)
-        
-        # 如果使用者沒有輸入文字，只上傳檔案
-        if not message:
-            return StreamingResponse(iter(["\n".join(summaries)]), media_type="text/plain")
+    # 如果使用者只傳圖/檔，卻沒打字，自動補上指令
+    if not message and current_turn_parts:
+        message = "請幫我詳細分析並總結這些檔案的內容。"
 
-    # =========================
-    # 準備對話與 Prompt
-    # =========================
+    # 👉 2. 準備對話歷史
     current_memory.append({"role": "user", "content": message})
     trim_memory(current_memory)
 
     system = """
     你是網站內的 AI 助理，負責協助使用者完成實際任務，請使用繁體中文。
     重要規則：
-    1. 當使用者上傳報表時，請化身資料分析師，給出專業、排版清晰的洞察。
+    1. 當使用者上傳報表或圖片時，請化身專業分析師，給出排版清晰的洞察（多用 Markdown 表格和粗體）。
     2. 若使用者有寄信、請假意圖，請立刻呼叫工具準備信件。
     """
     convo = [system]
-    for m in current_memory[-10:]:
+    
+    # 塞入歷史文字對話 (抓取最近 10 筆，但不包含剛剛加的最新一筆)
+    for m in current_memory[-10:-1]:
         if m["role"] == "user":
             convo.append(f"使用者：{m['content']}")
         elif m["role"] == "assistant":
             convo.append(f"助理：{m['content']}")
         elif m["role"] == "file":
-            convo.append(f"（先前檔案摘要/數據預覽）：{m.get('summary','')}")
+            convo.append(m['content'])
     
+    # 👉 3. 關鍵直通車：把「實體檔案」和「這回合的問題」一起丟給 AI
+    convo.extend(current_turn_parts)
     convo.append(f"使用者：{message}")
 
     tools = [email_tool]
@@ -286,11 +268,10 @@ async def chat(
         if web_tools:
             tools.extend(web_tools)
 
-    # =========================
-    # 串流輸出 Generator
-    # =========================
+    # 👉 4. 串流輸出 Generator
     async def stream_generator():
         try:
+            # 這裡才是「唯一一次」發送 API，省時又省錢！
             response_stream = client.models.generate_content_stream(
                 model=MODEL_TEXT,
                 contents=convo,
@@ -299,7 +280,6 @@ async def chat(
 
             full_reply = ""
             for chunk in response_stream:
-                # 攔截 Function Calling
                 if chunk.function_calls:
                     fc = chunk.function_calls[0]
                     if fc.name == "extract_email_intent":
@@ -310,7 +290,6 @@ async def chat(
                         yield sys_msg
                         break 
 
-                # 正常文字串流
                 if chunk.text:
                     full_reply += chunk.text
                     yield chunk.text 
@@ -326,7 +305,7 @@ async def chat(
 
 
 # =========================
-# 保留你原本的 Voice Confirm API (供前端確認按鈕使用)
+# Voice Confirm API (✅ 保留你原本的語音確認邏輯)
 # =========================
 from actions.send_email import send_email_via_outlook
 
