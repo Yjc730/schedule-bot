@@ -529,7 +529,6 @@
 
 <body>
 <div class="wrapper">
-  <!-- Sidebar -->
   <aside id="sidebar" class="sidebar">
     <div class="sidebar-header">
       <div class="sidebar-title">
@@ -541,7 +540,6 @@
     <div id="historyList" class="sidebar-body"></div>
   </aside>
 
-  <!-- Main -->
   <main id="app" class="app">
     <header class="header">
       <div class="brand">
@@ -568,11 +566,11 @@
           <input
             type="file"
             id="fileInput"
-            accept="image/*,.pdf,application/pdf"
+            accept="image/*,.pdf,application/pdf,.csv"
             multiple
           />
         </label>
-        <textarea id="input" rows="2" placeholder="輸入文字或用語音…（支援圖片/PDF）"></textarea>
+        <textarea id="input" rows="2" placeholder="輸入文字或用語音…（支援圖片/PDF/CSV）"></textarea>
       </div>
       <div class="controls">
         <button id="mic" type="button">🎤 語音輸入</button>
@@ -583,7 +581,7 @@
 </div>
 
 <script>
-  // 👉 記得改成你自己的 Railway URL
+  // 👉 API 網址保留你的設定
   const API_BASE_URL = "https://schedule-bot-uzuu.onrender.com";
   const chatEl = document.getElementById("chat");
   const inputEl = document.getElementById("input");
@@ -608,8 +606,7 @@
 ========================= */
 fileInput.onchange = () => {
   if (fileInput.files.length > 0) {
-    inputEl.placeholder =
-      `📎 已選 ${fileInput.files.length} 個檔案，可直接輸入問題`;
+    inputEl.placeholder = `📎 已選 ${fileInput.files.length} 個檔案，可直接輸入問題`;
   } else {
     inputEl.placeholder = defaultPlaceholder;
   }
@@ -642,11 +639,9 @@ fileInput.onchange = () => {
   };
 
   /* =========================
-     Voice TTS (模式 A：預設關閉，只按🔈才唸)
-     ✅ 會存 localStorage
-     ✅ 關閉時會 stop speak
+     Voice TTS
   ========================= */
-  let voiceEnabled = JSON.parse(localStorage.getItem("voice_enabled") || "false"); // ✅ 預設 false
+  let voiceEnabled = JSON.parse(localStorage.getItem("voice_enabled") || "false");
   function syncVoiceUI(){
     voiceBtn.textContent = voiceEnabled ? "🔈" : "🔇";
     voiceBtn.classList.toggle("voice-on", voiceEnabled);
@@ -664,12 +659,10 @@ fileInput.onchange = () => {
   };
 
   /* =========================
-   Speech Recognition (語音輸入)
+    Speech Recognition (語音輸入)
 ========================= */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 const recog = SR ? new SR() : null;
-
-
 
 if (!navigator.mediaDevices || !recog) {
   micBtn.disabled = true;
@@ -682,47 +675,35 @@ let lastTranscript = "";
 function resetMicUI() {
   isListening = false;
   lastTranscript = "";
-
   micBtn.textContent = "🎤 語音輸入";
   micBtn.classList.remove("voice-on");
   sendBtn.disabled = false;
-
   inputEl.placeholder = defaultPlaceholder;
   inputEl.classList.remove("listening");
-
-  // ⭐ 關鍵：確認中就不要重置
   if (pendingVoiceAction) return;
 }
-
-
 
 if (recog) {
   recog.lang = "zh-TW";
   recog.interimResults = false;
   recog.maxAlternatives = 1;
 
-  recog.onstart = () => {
-    console.log("🎤 recognition STARTED");
-  };
+  recog.onstart = () => console.log("🎤 recognition STARTED");
   
-  // 🎤 點擊麥克風：開始 / 停止
   micBtn.onclick = () => {
     if (pendingVoiceAction) {
-  renderMessage("assistant", "請直接說「對」或「取消」");
-  return;
-}
+      renderMessage("assistant", "請直接說「對」或「取消」");
+      return;
+    }
     if (!isListening) {
       try {
         recog.start();
         isListening = true;
         micBtn.textContent = "🛑 停止語音";
         micBtn.classList.add("voice-on");
-        sendBtn.disabled = true;   // ⭐ 新增
-
-        // ⭐ Listening UI
+        sendBtn.disabled = true;
         inputEl.placeholder = "🎙 Listening…";
         inputEl.classList.add("listening");
-        
       } catch (e) {
         console.warn("Speech start error", e);
       }
@@ -731,63 +712,12 @@ if (recog) {
     }
   };
 
-
-
-  function isActionCommand(text){
-    const keywords = [
-      "寄信", "幫我寄", "寫信給", "寄一封信",
-      "開outlook", "開信"
-    ];
-    return keywords.some(k => text.includes(k));
-  }
-  // =========================
-// ✅ 語音送出（跟按「送出」共用邏輯）
-// =========================
-async function smartSend(text) {
-  // 顯示使用者說的話
-  renderMessage("user", text);
-  saveHistory({ role: "user", text });
-
-  // 顯示思考中
-  const thinking = renderMessage(
-    "assistant",
-    "… 正在思考中",
-    { thinking: true }
-  );
-
-  try {
-    const form = new FormData();
-    form.append("message", text);
-
-    const res = await fetch(`${API_BASE_URL}/chat`, {
-      method: "POST",
-      body: form
-    });
-
-    if (!res.ok) {
-      throw new Error(await res.text());
-    }
-
-    const data = await res.json();
-    thinking.parentElement.remove();
-    typeWriter(data.reply || "", "—");
-
-  } catch (e) {
-    thinking.textContent = "❌ 語音處理失敗";
-    console.error(e);
-  } finally {
-    // ⭐ 語音流程結束才 reset UI
-    resetMicUI();
-  }
-}
- 
   recog.onresult = e => {
     const text = e.results[0][0].transcript.trim();
     if (!text) return;
-    smartSend(text);
+    smartSend(text); 
   };
 
-  // ⛔ 發生錯誤
   recog.onerror = e => {
     console.warn("Speech error:", e.error);
     if (e.error === "not-allowed" || e.error === "service-not-allowed") {
@@ -798,23 +728,139 @@ async function smartSend(text) {
     resetMicUI();
   };
 
-recog.onend = () => {
-  console.log("🎤 recognition ENDED");
+  recog.onend = () => {
+    console.log("🎤 recognition ENDED");
+    if (pendingVoiceAction) return;
+  };
+}
 
-  // ✅ 如果正在等使用者說「對 / 取消」
-  if (pendingVoiceAction) {
-    console.log("⏸ waiting confirm, stop recognition");
-    return;
+// =========================
+// ✅ 核心：處理串流輸出 (打字機效果 + 攔截寄信動作)
+// =========================
+async function handleStreamResponse(res, thinkingBubble) {
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  
+  // 移除「思考中」的泡泡
+  thinkingBubble.parentElement.remove();
+
+  // 建立一個新的 AI 回覆泡泡
+  const bubble = renderMessage("assistant", "", { tag: "AI · Stream Output" });
+  
+  // 抓取剛剛在 renderMessage 中產生的文字容器 class="text-content"
+  const textDiv = bubble.querySelector(".text-content");
+  let fullReply = "";
+
+  // 開始接收水流 (Chunks)
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    // 解碼並累加文字
+    const chunk = decoder.decode(value, { stream: true });
+    fullReply += chunk;
+    textDiv.textContent = fullReply;
+    
+    // 自動捲動到底部
+    chatEl.scrollTop = chatEl.scrollHeight;
+  }
+
+  if (voiceEnabled) speak(fullReply);
+  saveHistory({ role: "assistant", text: fullReply });
+
+  // 檢查是否觸發了「寄信功能 (Function Calling)」
+  if (fullReply.includes("📧 【系統動作：準備寄信】")) {
+    const recMatch = fullReply.match(/收件人：(.*)/);
+    const bodyMatch = fullReply.match(/內容：([\s\S]*?)\n\n請問/);
+    
+    const toName = recMatch ? recMatch[1].trim() : "主管";
+    const bodyText = bodyMatch ? bodyMatch[1].trim() : fullReply;
+
+    renderMailAction({
+      to: "boss@example.com", 
+      subject: `來自 AI 助理的信件 (To: ${toName})`,
+      body: bodyText
+    });
+  }
+}
+
+// =========================
+// ✅ 語音送出
+// =========================
+async function smartSend(text) {
+  renderMessage("user", text);
+  saveHistory({ role: "user", text });
+
+  const thinkingBubble = renderMessage("assistant", "… 正在思考中", { thinking: true });
+
+  try {
+    const form = new FormData();
+    form.append("message", text);
+    form.append("user_id", "guest_voice"); 
+
+    const res = await fetch(`${API_BASE_URL}/chat`, {
+      method: "POST",
+      body: form
+    });
+
+    if (!res.ok) throw new Error(await res.text());
+
+    await handleStreamResponse(res, thinkingBubble);
+
+  } catch (e) {
+    thinkingBubble.querySelector(".text-content").textContent = "❌ 語音處理失敗";
+    console.error(e);
+  } finally {
+    resetMicUI();
+  }
+}
+
+// =========================
+// ✅ 文字與檔案送出 (支援多檔圖片 / PDF / CSV)
+// =========================
+sendBtn.onclick = async () => {
+  const text = inputEl.value.trim();
+  const files = Array.from(fileInput.files);
+
+  if (!text && files.length === 0) return;
+
+  const userLabel = text || `🗂 已上傳 ${files.length} 個檔案`;
+  renderMessage("user", userLabel);
+  saveHistory({ role: "user", text: text || `[上傳 ${files.length} 個檔案]` });
+
+  let thinkingBubble = renderMessage(
+    "assistant",
+    files.length > 0 ? `📂 正在分析檔案，請稍候…` : "… 正在思考中",
+    { thinking: true }
+  );
+
+  try {
+    const form = new FormData();
+    form.append("message", text);
+    form.append("user_id", "guest_web");
+
+    for (const file of files) {
+      form.append("image", file);
+    }
+
+    const res = await fetch(`${API_BASE_URL}/chat`, {
+      method: "POST",
+      body: form,
+    });
+
+    if (!res.ok) throw new Error(await res.text());
+
+    await handleStreamResponse(res, thinkingBubble);
+
+  } catch (e) {
+    thinkingBubble.querySelector(".text-content").textContent = "❌ 連線失敗，請稍後再試";
+    console.error(e);
+  } finally {
+    inputEl.value = "";
+    fileInput.value = "";
+    fileInput.onchange(); 
   }
 };
-
-  
-    
-  } else {
-    micBtn.disabled = true;
-    micBtn.textContent = "🎤 此瀏覽器不支援語音輸入";
-  }
-
 
   /* =========================
      Load history (保留功能)
@@ -825,83 +871,8 @@ recog.onend = () => {
     addHistoryLine(m);
   });
 
-/* =========================
-   Send message (支援多檔圖片 / PDF)
-========================= */
-sendBtn.onclick = async () => {
-  const text = inputEl.value.trim();
-  const files = Array.from(fileInput.files); // ⭐ 關鍵
-
-  if (!text && files.length === 0) return;
-
-  // UI
-  const userLabel =
-    text || `🗂 已上傳 ${files.length} 個檔案`;
-  renderMessage("user", userLabel);
-
-  saveHistory({
-    role: "user",
-    text: text || `[上傳 ${files.length} 個檔案]`
-  });
-
-  let thinkingBubble;
-
-  if (files.length > 0) {
-    thinkingBubble = renderMessage(
-      "assistant",
-      `📂 正在分析 ${files.length} 個檔案，請稍候…`,
-      { thinking: true }
-    );
-  } else {
-    thinkingBubble = renderMessage(
-      "assistant",
-      "… 正在思考中",
-      { thinking: true }
-    );
-  }
-
-  try {
-    const form = new FormData();
-    form.append("message", text);
-
-    for (const file of files) {
-      form.append("image", file); // 同名 key ✔
-    }
-
-    const res = await fetch(`${API_BASE_URL}/chat`, {
-      method: "POST",
-      body: form,
-    });
-
-    if (!res.ok) {
-      throw new Error(await res.text());
-    }
-
-    const data = await res.json();
-    thinkingBubble.parentElement.remove();
-    typeWriter(data.reply || "", "—");
-    
-    // 🟢 若 AI 已產生請假信，顯示 Outlook 寄信按鈕
-    if (data.reply && data.reply.includes("請假")) {
-      renderMailAction({
-        to: "boss@company.com",        // 👉 先寫死，之後可讓 AI 回傳
-        subject: "請假申請",
-        body: data.reply
-      });
-    }
-
-  } catch (e) {
-    thinkingBubble.textContent = "❌ 連線失敗，請稍後再試";
-    console.error(e);
-  } finally {
-    // ⭐ 最後才清
-    inputEl.value = "";
-    fileInput.value = "";
-  }
-};
-
   /* =========================
-     Render
+     Render (UI 繪製更新)
   ========================= */
   function renderMessage(role, text, options = {}) {
     const { imageUrl = null, thinking = false, tag = null } = options;
@@ -913,7 +884,6 @@ sendBtn.onclick = async () => {
     bubble.className = "bubble";
     if (thinking) bubble.classList.add("thinking");
 
-    // optional tag (AI)
     if (tag) {
       const t = document.createElement("div");
       t.className = "tag";
@@ -922,6 +892,7 @@ sendBtn.onclick = async () => {
     }
 
     const textNode = document.createElement("div");
+    textNode.className = "text-content"; // 👈 新增這個 class 讓上面的 JS 抓得到
     textNode.textContent = text;
     bubble.appendChild(textNode);
 
@@ -937,6 +908,7 @@ sendBtn.onclick = async () => {
     chatEl.scrollTop = chatEl.scrollHeight;
     return bubble;
   }
+
   // =========================
   // 📧 顯示「用 Outlook 寄出」按鈕
   // =========================
@@ -964,33 +936,6 @@ sendBtn.onclick = async () => {
     chatEl.scrollTop = chatEl.scrollHeight;
   }
 
-  function typeWriter(text, seconds) {
-    let i = 0;
-
-    const bubble = renderMessage("assistant", "", { tag: "AI · Reasoned Response" });
-
-    const meta = document.createElement("div");
-    meta.className = "meta";
-    meta.textContent = `⏱ 回覆時間約 ${seconds}s`;
-
-    // typing
-    const timer = setInterval(() => {
-      // bubble 的第二個 child 是文字容器（tag + textDiv）
-      const textDiv = bubble.children[1];
-      textDiv.textContent += text[i++] || "";
-
-      chatEl.scrollTop = chatEl.scrollHeight;
-
-      if (i >= text.length) {
-        clearInterval(timer);
-        bubble.appendChild(meta);
-
-        if (voiceEnabled) speak(text);
-        saveHistory({ role: "assistant", text });
-      }
-    }, 16);
-  }
-
   /* =========================
      Sidebar history
   ========================= */
@@ -1014,11 +959,12 @@ sendBtn.onclick = async () => {
   ========================= */
   function speak(text) {
     if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel(); // 避免疊音
+    window.speechSynthesis.cancel(); 
     const u = new SpeechSynthesisUtterance(text);
     u.lang = "zh-TW";
     window.speechSynthesis.speak(u);
   }
+
 // =========================
 // 📧 開啟 Outlook 寄信
 // =========================
@@ -1088,31 +1034,3 @@ async function confirmVoiceAction() {
 </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
