@@ -72,7 +72,7 @@ class VoiceCommandResponse(BaseModel):
 # Memory（圖片 + 對話 + PDF）
 # =========================
 """
-chat_memory 結構：
+current_memory 結構：
 [
   { "role": "user", "content": "問題" },
   { "role": "assistant", "content": "回答" },
@@ -87,14 +87,22 @@ chat_memory 結構：
   }
 ]
 """
-chat_memory: List[Dict[str, Any]] = []
 
+chat_histories: Dict[str, List[Dict[str, Any]]] = {}
 
-def trim_memory():
-    """避免記憶無限膨脹（保留最後 MAX_MEMORY_MESSAGES 筆）"""
-    global chat_memory
-    if len(chat_memory) > MAX_MEMORY_MESSAGES:
-        chat_memory = chat_memory[-MAX_MEMORY_MESSAGES:]
+def get_user_memory(user_id: str) -> List[Dict[str, Any]]:
+    """根據 user_id 取得對應的記憶，如果沒有就建立一個新的"""
+    if user_id not in chat_histories:
+        chat_histories[user_id] = []
+    return chat_histories[user_id]
+
+def trim_memory(memory_list: list):
+    """
+    確保傳入的對話清單不會超過最大長度限制。
+    使用 memory_list[:] = ... 是為了原地修改(In-place)清單內容。
+    """
+    if len(memory_list) > MAX_MEMORY_MESSAGES:
+        memory_list[:] = memory_list[-MAX_MEMORY_MESSAGES:]
 
 
 # =========================
@@ -346,8 +354,8 @@ async def root():
 # =========================
 @app.post("/reset", response_model=ChatResponse)
 async def reset():
-    chat_memory.clear()
-    return ChatResponse(reply="✅ 已清除後端記憶（chat_memory）")
+    current_memory.clear()
+    return ChatResponse(reply="✅ 已清除後端記憶（current_memory）")
 
 
 # =========================
@@ -356,8 +364,11 @@ async def reset():
 @app.post("/chat", response_model=ChatResponse)
 async def chat(
     message: str = Form(""),
+    user_id: str = Form("guest"),  # 👈 新增這一行，預設值給 guest
     image: List[UploadFile] = File(default_factory=list),
 ):
+    # 在函數的第一行，先取得該使用者的專屬記憶體
+    current_memory = get_user_memory(user_id)
     if not client:
         return ChatResponse(reply="❌ 後端尚未設定 GEMINI_API_KEY")
 
@@ -394,7 +405,7 @@ async def chat(
                 file_type = "other"
                 file_summary = result
 
-            chat_memory.append({
+            current_memory.append({
                 "role": "file",
                 "content": message or "[使用者上傳檔案]",
                 "filename": img.filename or "uploaded",
@@ -411,7 +422,7 @@ async def chat(
                 "use_rag": use_rag
             })
 
-        trim_memory()
+        trim_memory(current_memory)
 
         # --- 有問題 → 跨檔回答 ---
         if message:
@@ -429,8 +440,8 @@ async def chat(
                 ]
             )
 
-            chat_memory.append({"role": "assistant", "content": reply})
-            trim_memory()
+            current_memory.append({"role": "assistant", "content": reply})
+            trim_memory(current_memory)
             return ChatResponse(reply=reply)
 
         # --- 沒問題 → 回摘要 ---
@@ -450,8 +461,8 @@ async def chat(
     if not message:
         return ChatResponse(reply="請輸入問題或上傳圖片 / PDF 喔！")
 
-    chat_memory.append({"role": "user", "content": message})
-    trim_memory()
+    current_memory.append({"role": "user", "content": message})
+    trim_memory(current_memory)
 
     system = """
 你是網站內的 AI 助理，負責協助使用者完成實際任務，請使用繁體中文。
@@ -467,7 +478,7 @@ async def chat(
 
 
     convo = [system]
-    for m in chat_memory[-10:]:
+    for m in current_memory[-10:]:
         if m["role"] == "user":
             convo.append(f"使用者：{m['content']}")
         elif m["role"] == "assistant":
@@ -487,8 +498,8 @@ async def chat(
         tools=tools,
     )
 
-    chat_memory.append({"role": "assistant", "content": reply})
-    trim_memory()
+    current_memory.append({"role": "assistant", "content": reply})
+    trim_memory(current_memory)
     return ChatResponse(reply=reply)
 
 # =========================
@@ -497,9 +508,10 @@ async def chat(
 # 不影響現有 /chat API
 # =========================
 def handle_text_query(message: str) -> str:
+    current_memory = get_user_memory("guest")
     """
     純文字查詢入口（不含圖片 / PDF）
-    - 共用既有 chat_memory
+    - 共用既有 current_memory
     - 共用 Gemini 設定、工具、web search
     - 不動 FastAPI /chat 行為
     """
@@ -512,8 +524,8 @@ def handle_text_query(message: str) -> str:
         return "請輸入問題喔！"
 
     # ---- 記憶：user ----
-    chat_memory.append({"role": "user", "content": message})
-    trim_memory()
+    current_memory.append({"role": "user", "content": message})
+    trim_memory(current_memory)
 
     system = """
     你是網站內的 AI 助理，負責協助使用者完成實際任務，請使用繁體中文。
@@ -531,7 +543,7 @@ def handle_text_query(message: str) -> str:
     convo = [system]
 
     # ---- 最近對話記憶 ----
-    for m in chat_memory[-10:]:
+    for m in current_memory[-10:]:
         if m["role"] == "user":
             convo.append(f"使用者：{m['content']}")
         elif m["role"] == "assistant":
@@ -552,8 +564,8 @@ def handle_text_query(message: str) -> str:
     )
 
     # ---- 記憶：assistant ----
-    chat_memory.append({"role": "assistant", "content": reply})
-    trim_memory()
+    current_memory.append({"role": "assistant", "content": reply})
+    trim_memory(current_memory)
 
     return reply
 
@@ -647,6 +659,7 @@ async def voice_confirm(req: VoiceConfirmRequest):
 # (NO router needed here)
 # voice APIs are defined in this file
 # =========================
+
 
 
 
