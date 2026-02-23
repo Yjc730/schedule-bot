@@ -17,7 +17,8 @@ sys.path.append(BASE_DIR)
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-
+from fastapi.responses import StreamingResponse
+import io  
 import google.genai as genai
 from google.genai import types
 
@@ -403,124 +404,88 @@ async def reset():
 
 
 # =========================
-# Chat API (multipart: message + image/pdf)
+# Chat API (整合資料分析師與串流輸出)
 # =========================
-@app.post("/chat", response_model=ChatResponse)
+@app.post("/chat")
 async def chat(
     message: str = Form(""),
-    user_id: str = Form("guest"),  # 👈 新增這一行，預設值給 guest
+    user_id: str = Form("guest"),
     image: List[UploadFile] = File(default_factory=list),
 ):
-    # 在函數的第一行，先取得該使用者的專屬記憶體
     current_memory = get_user_memory(user_id)
     if not client:
-        return ChatResponse(reply="❌ 後端尚未設定 GEMINI_API_KEY")
+        return StreamingResponse(iter(["❌ 後端尚未設定 GEMINI_API_KEY"]), media_type="text/plain")
 
     message = (message or "").strip()
+    summaries = []
 
     # =========================
-    # Case 1：有上傳檔案（多檔）
+    # [新花樣] 資料分析師模式 (處理 CSV) + 原本的圖片/PDF 處理
     # =========================
     if image and len(image) > 0:
-        summaries = []
-
         for img in image:
             file_bytes = await img.read()
             mime = (img.content_type or "").strip().lower() or "application/octet-stream"
+            filename = img.filename.lower()
 
-            use_rag = (
-                mime == "application/pdf"
-                and len(file_bytes) > RAG_FILE_SIZE_THRESHOLD
-            )
-
-            file_b64 = base64.b64encode(file_bytes).decode("utf-8")
-            part = make_part_from_bytes(file_bytes, mime)
-
-            result = safe_generate_content(
-                model=MODEL_FAST,
-                contents=[IMAGE_ANALYZE_PROMPT, part],
-            )
-
-            try:
-                parsed = json.loads(result)
-                file_type = parsed.get("type", "other").lower()
-                file_summary = parsed.get("summary", "")
-            except Exception:
-                file_type = "other"
-                file_summary = result
+            # 👉 判斷是否為 CSV 報表
+            if mime == "text/csv" or filename.endswith(".csv"):
+                try:
+                    # 將 bytes 解碼成文字
+                    file_text = file_bytes.decode("utf-8", errors="ignore")
+                    # 為了避免 Token 爆炸，我們只取前 50 行當作預覽餵給模型
+                    lines = file_text.split("\n")[:50]
+                    preview = "\n".join(lines)
+                    file_summary = f"這是一份名為 {img.filename} 的 CSV 資料表。以下是前 50 行的資料預覽：\n{preview}\n\n請根據這些資料進行專業分析或回答問題。"
+                    file_type = "table"
+                except Exception as e:
+                    file_summary = f"讀取 CSV 失敗：{e}"
+                    file_type = "other"
+            
+            # 👉 原本的圖片與 PDF 處理邏輯
+            else:
+                part = make_part_from_bytes(file_bytes, mime)
+                result = safe_generate_content(
+                    model=MODEL_FAST,
+                    contents=[IMAGE_ANALYZE_PROMPT, part],
+                )
+                try:
+                    parsed = json.loads(result)
+                    file_type = parsed.get("type", "other").lower()
+                    file_summary = parsed.get("summary", "")
+                except Exception:
+                    file_type = "other"
+                    file_summary = result
 
             current_memory.append({
                 "role": "file",
                 "content": message or "[使用者上傳檔案]",
                 "filename": img.filename or "uploaded",
-                "b64": file_b64,
+                "b64": base64.b64encode(file_bytes).decode("utf-8"),
                 "mime": mime,
                 "summary": file_summary,
                 "type": file_type,
             })
-
-            summaries.append({
-                "filename": img.filename,
-                "summary": file_summary,
-                "type": file_type,
-                "use_rag": use_rag
-            })
+            summaries.append(f"【{img.filename}】已讀取完成。")
 
         trim_memory(current_memory)
 
-        # --- 有問題 → 跨檔回答 ---
-        if message:
-            all_summaries = "\n\n".join(
-                f"【{s['filename']}】\n{s['summary']}"
-                for s in summaries
-            )
-
-            reply = safe_generate_content(
-                model=MODEL_TEXT,
-                contents=[
-                    "你正在同時閱讀多個檔案，請整合所有資訊後回答。",
-                    f"【檔案摘要集合】\n{all_summaries}",
-                    f"使用者問題：{message}"
-                ]
-            )
-
-            current_memory.append({"role": "assistant", "content": reply})
-            trim_memory(current_memory)
-            return ChatResponse(reply=reply)
-
-        # --- 沒問題 → 回摘要 ---
-        return ChatResponse(
-            reply=(
-                f"✅ 已讀取 {len(summaries)} 個檔案。\n\n"
-                + "\n\n".join(
-                    f"【{s['filename']}】\n{s['summary']}"
-                    for s in summaries
-                )
-            )
-        )
+        # 如果使用者沒有問問題，只上傳檔案，就直接回報讀取狀態
+        if not message:
+            return StreamingResponse(iter(["\n".join(summaries)]), media_type="text/plain")
 
     # =========================
-    # Case 2：純文字聊天（沒有檔案）
+    # 準備對話歷史 (convo)
     # =========================
-    if not message:
-        return ChatResponse(reply="請輸入問題或上傳圖片 / PDF 喔！")
-
     current_memory.append({"role": "user", "content": message})
     trim_memory(current_memory)
 
     system = """
-你是網站內的 AI 助理，負責協助使用者完成實際任務，請使用繁體中文。
-
-重要規則（請嚴格遵守）：
-1. 你不需要也不應該說「我無法寄信」、「我不能開 Outlook」。
-2. 當你已經產生完整的請假信或信件內容時：
-   - 請直接提供完整信件內容。
-   - 可以詢問使用者是否要「用 Outlook 寄出」。
-3. 因為前端介面已提供「用 Outlook 寄出」按鈕，實際寄送會由使用者在 Outlook 中完成。
-4. 請把你的角色視為「幫助完成寄信流程的一部分」，而不是單純聊天機器人。
-"""
-
-
+    你是網站內的 AI 助理，負責協助使用者完成實際任務（包含寄信、數據分析等），請使用繁體中文。
+    重要規則：
+    1. 當使用者上傳報表時，請化身資料分析師，給出專業、排版清晰的洞察。
+    2. 若觸發寄信，請直接準備信件內容。
+    """
     convo = [system]
     for m in current_memory[-10:]:
         if m["role"] == "user":
@@ -528,26 +493,56 @@ async def chat(
         elif m["role"] == "assistant":
             convo.append(f"助理：{m['content']}")
         elif m["role"] == "file":
-            convo.append(f"（先前檔案摘要）：{m.get('summary','')}")
-
+            convo.append(f"（先前檔案摘要/數據預覽）：{m.get('summary','')}")
+    
     convo.append(f"使用者：{message}")
 
-    # 預設把寄信工具交給 AI
     tools = [email_tool]
     if ENABLE_WEB_SEARCH and should_use_web_search(message):
         web_tools = web_search_tools()
         if web_tools:
-            tools.extend(web_tools) # 如果有開啟搜尋，就把搜尋工具也加進去
+            tools.extend(web_tools)
 
-    reply = safe_generate_content(
-        model=MODEL_TEXT,
-        contents=convo,
-        tools=tools,
-    )
+    # =========================
+    # [新花樣] 串流輸出產生器 (Generator)
+    # =========================
+    async def stream_generator():
+        try:
+            # 呼叫 Gemini 的串流 API
+            response_stream = client.models.generate_content_stream(
+                model=MODEL_TEXT,
+                contents=convo,
+                config=types.GenerateContentConfig(tools=tools)
+            )
 
-    current_memory.append({"role": "assistant", "content": reply})
-    trim_memory(current_memory)
-    return ChatResponse(reply=reply)
+            full_reply = ""
+            for chunk in response_stream:
+                # 👉 攔截 Function Call (寄信)
+                if chunk.function_calls:
+                    fc = chunk.function_calls[0]
+                    if fc.name == "extract_email_intent":
+                        rec = fc.args.get("recipient_name", "")
+                        body = fc.args.get("email_content", "")
+                        sys_msg = f"📧 【系統動作：準備寄信】\n收件人：{rec}\n內容：{body}\n\n請問確認要寄出嗎？"
+                        full_reply += sys_msg
+                        yield sys_msg  # 將寄信提示推給前端
+                        break # 工具呼叫完就結束
+
+                # 👉 一般文字串流輸出
+                if chunk.text:
+                    full_reply += chunk.text
+                    yield chunk.text  # 一個字一個字推給前端
+
+            # 串流結束後，將完整的回答存入記憶體
+            if full_reply:
+                current_memory.append({"role": "assistant", "content": full_reply})
+                trim_memory(current_memory)
+
+        except Exception as e:
+            yield f"\n⚠️ 產生回應時發生錯誤：{str(e)}"
+
+    # 回傳 StreamingResponse，取代原本的 JSON ChatResponse
+    return StreamingResponse(stream_generator(), media_type="text/plain")
 
 # =========================
 # Shared Core (Text-only)
@@ -709,6 +704,7 @@ async def voice_confirm(req: VoiceConfirmRequest):
 # (NO router needed here)
 # voice APIs are defined in this file
 # =========================
+
 
 
 
