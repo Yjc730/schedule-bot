@@ -3,6 +3,7 @@ import os
 import sys
 import base64
 import re
+import json
 
 from typing import Any, Dict, List, Optional, Union
 
@@ -181,30 +182,65 @@ def make_part_from_bytes(data: bytes, mime: str) -> "types.Part":
         # fallback：舊版/不同簽名
         return types.Part.from_bytes(data, mime)
 
+# =========================
+# AI Tools (Function Calling 工具定義)
+# =========================
+email_tool = types.Tool(
+    function_declarations=[
+        types.FunctionDeclaration(
+            name="extract_email_intent",
+            description="當使用者想要寄信、發電子郵件、聯絡某人時，提取收件人與內容",
+            parameters=types.Schema(
+                type="OBJECT",
+                properties={
+                    "recipient_name": types.Schema(
+                        type="STRING",
+                        description="收件人的名稱或稱呼（例如：老闆、主管、王經理）"
+                    ),
+                    "email_content": types.Schema(
+                        type="STRING",
+                        description="信件的具體內容"
+                    )
+                },
+                required=["recipient_name", "email_content"]
+            )
+        )
+    ]
+)
+
 def parse_voice_intent(text: str) -> dict:
     """
-    非 LLM 的保守版解析（一定過）
+    進階版：使用 LLM Function Calling 自動分析語音意圖
     """
-    if "寄信" in text or "寫信" in text:
-        recipient = None
+    if not client:
+        return {"intent": "chat", "slots": {}}
 
-        if "主管" in text:
-            recipient = "主管"
-        elif "老闆" in text:
-            recipient = "老闆"
-
-        # 超保守：把「寄信給XXX」後面的當內容
-        body = text
-        body = re.sub(r"幫我|請|寄信給.*?[,，]?", "", body).strip()
-
-        return {
-            "intent": "send_email",
-            "slots": {
-                "recipient": recipient,
-                "body": body
-            }
-        }
-
+    try:
+        # 讓 Gemini 自己判斷這句話是不是要寄信
+        res = client.models.generate_content(
+            model=MODEL_FAST,
+            contents=f"請分析這句話是否有寄信意圖，如果有，請呼叫工具提取資訊：\n使用者說：「{text}」",
+            config=types.GenerateContentConfig(
+                tools=[email_tool],
+                temperature=0.1  # 溫度調低，讓提取更精準
+            )
+        )
+        
+        # 如果 LLM 決定呼叫工具，代表它判斷這是一個寄信動作！
+        if res.function_calls:
+            fc = res.function_calls[0]
+            if fc.name == "extract_email_intent":
+                return {
+                    "intent": "send_email",
+                    "slots": {
+                        "recipient": fc.args.get("recipient_name", ""),
+                        "body": fc.args.get("email_content", "")
+                    }
+                }
+    except Exception as e:
+        print(f"意圖分析失敗：{e}")
+        
+    # 如果沒有呼叫工具，或者發生錯誤，就當作一般聊天
     return {
         "intent": "chat",
         "slots": {}
@@ -237,7 +273,15 @@ def safe_generate_content(
                     model=model,
                     contents=contents,
                 )
-            return (res.text or "").strip()
+
+            if res.function_calls:
+                fc = res.function_calls[0]
+                if fc.name == "extract_email_intent":
+                    rec = fc.args.get("recipient_name", "")
+                    body = fc.args.get("email_content", "")
+                    return f"📧 【系統動作：準備寄信】\n收件人：{rec}\n內容：{body}\n\n請問確認要寄出嗎？（若確認，請由前端觸發寄信邏輯）"
+
+        return (res.text or "").strip()
 
         except Exception as e:
             msg = str(e)
@@ -488,9 +532,12 @@ async def chat(
 
     convo.append(f"使用者：{message}")
 
-    tools = None
+    # 預設把寄信工具交給 AI
+    tools = [email_tool]
     if ENABLE_WEB_SEARCH and should_use_web_search(message):
-        tools = web_search_tools() or None
+        web_tools = web_search_tools()
+        if web_tools:
+            tools.extend(web_tools) # 如果有開啟搜尋，就把搜尋工具也加進去
 
     reply = safe_generate_content(
         model=MODEL_TEXT,
@@ -553,9 +600,12 @@ def handle_text_query(message: str) -> str:
 
     convo.append(f"使用者：{message}")
 
-    tools = None
+    # 預設把寄信工具交給 AI
+    tools = [email_tool]
     if ENABLE_WEB_SEARCH and should_use_web_search(message):
-        tools = web_search_tools() or None
+        web_tools = web_search_tools()
+        if web_tools:
+            tools.extend(web_tools) # 如果有開啟搜尋，就把搜尋工具也加進去
 
     reply = safe_generate_content(
         model=MODEL_TEXT,
@@ -659,6 +709,7 @@ async def voice_confirm(req: VoiceConfirmRequest):
 # (NO router needed here)
 # voice APIs are defined in this file
 # =========================
+
 
 
 
