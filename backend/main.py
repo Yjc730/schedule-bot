@@ -117,6 +117,26 @@ email_tool = types.Tool(
     ]
 )
 
+# 👇 新增這個：告警查詢跳轉工具
+alarm_tool = types.Tool(
+    function_declarations=[
+        types.FunctionDeclaration(
+            name="open_alarm_system",
+            description="當使用者想要查詢基地台告警代碼、Fault ID、或是詢問基地台故障、告警怎麼處理時，觸發此工具",
+            parameters=types.Schema(
+                type="OBJECT",
+                properties={
+                    "query_keyword": types.Schema(
+                        type="STRING",
+                        description="使用者想查詢的代碼或關鍵字（例如：7115-2、天線故障、查告警）"
+                    )
+                },
+                required=["query_keyword"]
+            )
+        )
+    ]
+)
+
 def web_search_tools() -> list:
     try:
         return [types.Tool(google_search=types.GoogleSearch())]
@@ -262,7 +282,7 @@ async def chat(
     convo.extend(current_turn_parts)
     convo.append(f"使用者：{message}")
 
-    tools = [email_tool]
+    tools = [email_tool, alarm_tool]
     if ENABLE_WEB_SEARCH and should_use_web_search(message):
         web_tools = web_search_tools()
         if web_tools:
@@ -289,6 +309,14 @@ async def chat(
                         full_reply += sys_msg
                         yield sys_msg
                         break 
+
+                    elif fc.name == "open_alarm_system":
+                        keyword = fc.args.get("query_keyword", "未知代碼")
+                        
+                        # 發送帶有特殊暗號的字串給前端
+                        sys_msg = f"🚨 【系統動作：開啟告警查詢】\n偵測到您想查詢告警代碼或故障資訊 ({keyword})。\n請點擊下方按鈕前往「Alarm-Fault 專屬系統」進行深度查詢："
+                        yield sys_msg
+                        break
 
                 if chunk.text:
                     full_reply += chunk.text
@@ -338,3 +366,4 @@ async def voice_confirm(req: VoiceConfirmRequest):
             return VoiceConfirmResponse(reply=f"❌ 寄信失敗：{str(e)}")
 
     return VoiceConfirmResponse(reply="🤷 這個操作我還不會")
+
