@@ -383,6 +383,10 @@
         body: bodyText
       });
     }
+
+    else if (fullReply.includes("🚨 【系統動作：開啟告警查詢】")) {
+      renderAlarmAction(bubbleEl);
+    }
   }
 
   // =========================
@@ -452,8 +456,41 @@
     parentBubble.appendChild(actionRow);
   }
 
+  // =========================
+  // 顯示 Alarm-Fault 跳轉按鈕
+  // =========================
+  function renderAlarmAction(parentBubble) {
+    const actionRow = document.createElement("div");
+    actionRow.style.marginTop = "12px";
+    actionRow.style.paddingTop = "12px";
+    actionRow.style.borderTop = "1px solid rgba(148,163,184,0.2)";
+    
+    const textDiv = document.createElement("div");
+    textDiv.style.fontSize = "13px";
+    textDiv.style.marginBottom = "8px";
+    textDiv.textContent = "⚡ 系統已為您找到相關告警功能，點擊下方按鈕前往專屬系統進行深度查詢：";
+  
+    const btn = document.createElement("button");
+    btn.className = "primary-btn";
+    btn.style.width = "auto";
+    btn.style.padding = "6px 16px";
+    // 給這個按鈕一個跟 Outlook 不一樣的科技感紫色漸層，呼應你的 Alarm-Fault 介面
+    btn.style.background = "linear-gradient(135deg, #8b5cf6, #6d28d9)"; 
+    btn.style.boxShadow = "0 4px 15px rgba(139, 92, 246, 0.3)";
+    btn.innerHTML = "⚡ 前往 Alarm-Fault 系統";
+    btn.onclick = () => {
+      // 點擊後在新分頁開啟你的基地台告警機器人
+      window.open("https://yjc730.github.io/alarm-fault-bot/", "_blank");
+    };
+  
+    actionRow.appendChild(textDiv);
+    actionRow.appendChild(btn);
+    parentBubble.appendChild(actionRow);
+  }
+
   // 語音輸入等其他保留功能... (為了簡化主流程，此處保留按鈕但未實作詳細語音API，你可以隨時加回)
 </script>
 </body>
 </html>
+
 
