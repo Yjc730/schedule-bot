@@ -487,10 +487,51 @@
     actionRow.appendChild(btn);
     parentBubble.appendChild(actionRow);
   }
+  // =========================
+  // 🎤 語音辨識 (Web Speech API)
+  // =========================
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let isRecording = false;
+
+  if (SpeechRecognition) {
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'zh-TW'; // 設定為繁體中文
+    recognition.interimResults = false;
+
+    micBtn.onclick = () => {
+      if (!isRecording) {
+        recognition.start();
+        isRecording = true;
+        micBtn.innerHTML = "🔴 聆聽中...";
+        micBtn.style.background = "rgba(239, 68, 68, 0.2)";
+        micBtn.style.borderColor = "#ef4444";
+        micBtn.style.color = "#ef4444";
+      } else {
+        recognition.stop();
+      }
+    };
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      inputEl.value += transcript; // 把聽到的字塞進輸入框
+      inputEl.focus();
+    };
+
+    recognition.onend = () => {
+      isRecording = false;
+      micBtn.innerHTML = "🎤 語音輸入";
+      micBtn.style.background = "rgba(255,255,255,0.1)";
+      micBtn.style.borderColor = "var(--border)";
+      micBtn.style.color = "var(--text)";
+    };
+  } else {
+    micBtn.onclick = () => alert("您目前的瀏覽器不支援語音輸入喔！建議使用 Chrome。");
+  }
 
   // 語音輸入等其他保留功能... (為了簡化主流程，此處保留按鈕但未實作詳細語音API，你可以隨時加回)
 </script>
 </body>
 </html>
+
 
 
